@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Development Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555;
+  --color-text-tertiary: #999;
+  --color-background-primary: #fff;
+  --color-background-secondary: #f5f5f4;
+  --color-border-tertiary: #e5e5e4;
+  --color-border-secondary: #ccc;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-primary: #f0f0f0;
+    --color-text-secondary: #aaa;
+    --color-text-tertiary: #666;
+    --color-background-primary: #1c1c1e;
+    --color-background-secondary: #2c2c2e;
+    --color-border-tertiary: #3a3a3c;
+    --color-border-secondary: #555;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);min-height:100vh;}
+.page{max-width:780px;margin:0 auto;padding:1.5rem 1rem;}
+.crm-wrap{padding:1rem 0;}
+.top-bar{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;flex-wrap:wrap;}
+.top-bar h2{font-size:18px;font-weight:500;color:var(--color-text-primary);flex:1;}
+.btn-add{display:flex;align-items:center;gap:6px;padding:8px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.btn-add:hover{background:var(--color-background-secondary);}
+.btn-io{display:flex;align-items:center;gap:5px;padding:7px 13px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);font-size:13px;cursor:pointer;}
+.btn-io:hover{background:var(--color-background-secondary);}
+.btn-io-export{border-color:var(--color-border-tertiary);}
+.btn-io-import{border-color:var(--color-border-tertiary);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 20px;border-radius:99px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.search-bar{padding:8px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);width:200px;}
+.filter-section{margin-bottom:1.25rem;}
+.filter-group{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.filter-group-label{font-size:12px;color:var(--color-text-secondary);min-width:56px;}
+.filter-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);transition:all .12s;user-select:none;}
+.filter-chip .dot{width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor;flex-shrink:0;}
+.filter-chip.checked .dot{background:currentColor;}
+.chip-all.checked{background:#EEEDFE;color:#3C3489;border-color:#3C3489;}
+#status-chips,#priority-chips,#devtype-chips,#duerange-chips{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.mini-select{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1.25rem;}
+.stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center;border:0.5px solid var(--color-border-tertiary);}
+.stat-num{font-size:19px;font-weight:500;color:var(--color-text-primary);}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.customer-list{display:flex;flex-direction:column;gap:10px;}
+.customer-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
+.customer-card.has-followup{border-color:#E05252;}
+.card-header{display:flex;align-items:center;gap:10px;padding:.9rem 1.25rem;cursor:pointer;user-select:none;}
+.card-header:hover{background:var(--color-background-secondary);}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;position:relative;}
+.avatar-dot{position:absolute;top:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:#E05252;border:2px solid var(--color-background-primary);}
+.card-meta{flex:1;min-width:0;}
+.card-name{font-size:15px;font-weight:500;color:var(--color-text-primary);}
+.card-company{font-size:12px;color:var(--color-text-secondary);}
+.card-log-preview{font-size:12.5px;color:var(--color-text-secondary);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;line-height:1.35;}
+.card-log-preview.urgent{color:#C0392B;font-weight:500;}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.card-badges{display:flex;gap:5px;align-items:center;}
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;white-space:nowrap;}
+.card-last{font-size:11px;color:var(--color-text-tertiary);}
+.card-body{display:none;border-top:0.5px solid var(--color-border-tertiary);padding:1rem 1.25rem;}
+.card-body.open{display:block;}
+.section-label{font-size:12px;color:var(--color-text-secondary);font-weight:500;margin-bottom:8px;margin-top:14px;}
+.section-label:first-child{margin-top:0;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:6px;font-size:13px;}
+.info-item{color:var(--color-text-secondary);}
+.info-item strong{color:var(--color-text-primary);font-weight:500;}
+.info-item-block{color:var(--color-text-secondary);margin-bottom:6px;line-height:1.5;}
+.info-item-block strong{color:var(--color-text-primary);font-weight:500;display:block;margin-top:2px;}
+.status-grid{display:flex;gap:6px;flex-wrap:wrap;}
+.status-btn,.priority-btn{padding:4px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-secondary);color:var(--color-text-secondary);transition:all .12s;}
+.status-btn.sel,.priority-btn.sel{border-color:transparent;font-weight:500;}
+.log-entry{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:8px;background:var(--color-background-secondary);}
+.log-entry.today-followup{border-color:#E05252;background:#FFF5F5;}
+.log-view{display:flex;gap:10px;align-items:flex-start;}
+.log-date-badge{font-size:12px;color:var(--color-text-secondary);white-space:nowrap;padding-top:2px;min-width:82px;display:flex;align-items:center;gap:4px;}
+.log-date-badge .red-dot{width:7px;height:7px;border-radius:50%;background:#E05252;flex-shrink:0;display:inline-block;}
+.log-text-display{flex:1;font-size:14px;color:var(--color-text-primary);line-height:1.6;word-break:break-word;}
+.log-actions{display:flex;gap:4px;flex-shrink:0;}
+.log-icon-btn{background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:15px;color:var(--color-text-tertiary);line-height:1;}
+.log-icon-btn:hover{color:var(--color-text-primary);}
+.log-icon-btn.del:hover{color:#A32D2D;}
+.log-edit-form{display:none;margin-top:8px;}
+.log-edit-form.open{display:block;}
+.log-edit-textarea{width:100%;padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);resize:vertical;min-height:60px;font-family:var(--font-sans);}
+.log-edit-date{padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);}
+.log-edit-row{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.btn-save-log{padding:5px 14px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:12px;cursor:pointer;font-weight:500;}
+.btn-cancel-log{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;}
+.add-log-row{display:flex;gap:8px;margin-top:8px;}
+.log-input{flex:1;padding:7px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.btn-log{padding:7px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);}
+.btn-log:hover{background:var(--color-background-secondary);}
+.log-hint{font-size:11px;color:var(--color-text-tertiary);margin-top:5px;}
+.card-footer{display:flex;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);gap:6px;}
+.btn-edit-c{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);}
+.btn-edit-c:hover{background:var(--color-background-secondary);}
+.btn-del-c{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-tertiary);}
+.btn-del-c:hover{color:#A32D2D;border-color:#A32D2D;}
+.empty{text-align:center;padding:3rem;color:var(--color-text-tertiary);font-size:14px;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:1.5rem;width:380px;max-width:92vw;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:1rem;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;color:var(--color-text-secondary);margin-bottom:4px;}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-secondary);color:var(--color-text-primary);font-family:var(--font-sans);}
+.field textarea{resize:vertical;min-height:52px;line-height:1.5;}
+.modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
+.btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
+.btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:14px 0;}
+
+/* ─── Mobile responsive ─── */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+  .page{padding:1rem 0.75rem;}
+  .top-bar{gap:8px;}
+  .top-bar h2{font-size:16px;width:100%;}
+  .search-bar{flex:1;min-width:0;width:auto;}
+  .btn-io span,.btn-io{font-size:12px;padding:7px 10px;}
+  .btn-add{padding:7px 12px;font-size:13px;}
+  .filter-group{gap:6px;}
+  .filter-group-label{width:100%;min-width:0;margin-bottom:2px;}
+  .filter-chip{font-size:11px;padding:4px 10px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:6px;}
+  .stat-card{padding:8px 8px;}
+  .stat-num{font-size:16px;}
+  .card-header{padding:.8rem 1rem;flex-wrap:wrap;}
+  .card-meta{min-width:0;flex-basis:calc(100% - 46px);}
+  .card-log-preview{font-size:12px;max-width:100%;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .card-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%;margin-top:6px;flex-wrap:wrap;gap:6px;}
+  .card-body{padding:0.85rem 1rem;}
+  .info-grid{grid-template-columns:1fr;}
+  .status-grid{gap:5px;}
+  .status-btn,.priority-btn{font-size:11px;padding:4px 10px;}
+  .log-text-display{font-size:14px;}
+  .log-date-badge{min-width:64px;font-size:11px;}
+  .add-log-row{flex-direction:column;}
+  .btn-log{width:100%;}
+  .modal{width:92vw;padding:1.25rem;}
+  .card-footer{flex-wrap:wrap;}
+}
+@media (max-width: 400px) {
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .card-log-preview{font-size:12px;}
+  .card-name{font-size:14px;}
+}
+/* Larger tap targets on touch devices */
+@media (pointer: coarse) {
+  .status-btn,.priority-btn,.filter-chip{min-height:32px;display:inline-flex;align-items:center;}
+  .log-icon-btn{padding:6px 8px;font-size:18px;}
+  input[type="checkbox"]{width:18px;height:18px;}
+}
+
+</style>
+</head>
+<body>
+<div class="page">
+<div class="crm-wrap">
+<div class="top-bar">
+  <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
+  <input class="search-bar" type="text" placeholder="搜尋 Brand / Article# / Developer..." id="search" oninput="render()">
+  <button class="btn-io btn-io-export" onclick="exportData()"><i class="ti ti-download"></i> 匯出</button>
+  <button class="btn-io btn-io-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+  <button class="btn-add" onclick="openModal()"><i class="ti ti-plus"></i> 新增項目</button>
+</div>
+<div id="toast" class="toast"></div>
+<div class="filter-section">
+  <div class="filter-group">
+    <span class="filter-group-label">開發狀態</span>
+    <label class="filter-chip chip-all" id="chip-all" onclick="toggleAll()"><span class="dot"></span>全部</label>
+    <span id="status-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">優先度</span>
+    <span id="priority-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">品牌</span>
+    <select class="mini-select" id="brand-filter" onchange="syncChips();render()"><option value="">全部品牌</option></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">開發類型</span>
+    <span id="devtype-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">交期</span>
+    <span id="duerange-chips"></span>
+  </div>
+</div>
+<div class="stats-row" id="stats-row"></div>
+<div class="customer-list" id="customer-list"></div>
+
+<div id="modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <h3 id="modal-title">新增項目</h3>
+    <div class="field"><label>Brand *</label><input id="f-brand" type="text" placeholder="Brand 品牌名稱"></div>
+    <div class="field"><label>Development Type</label>
+      <select id="f-devtype">
+        <option value="">— 未設定 —</option>
+        <option value="客指開發">客指開發</option>
+        <option value="自主開發">自主開發</option>
+        <option value="概念驗證">概念驗證</option>
+        <option value="Sourcing">Sourcing</option>
+      </select>
+    </div>
+    <div class="field"><label>Developer</label><input id="f-developer" type="text" placeholder="開發人員"></div>
+    <div class="field"><label>Request</label><textarea id="f-request" rows="2" placeholder="需求內容"></textarea></div>
+    <div class="field"><label>Family</label><input id="f-family" type="text" placeholder="系列 / Family"></div>
+    <div class="field"><label>Season</label><input id="f-season" type="text" placeholder="季節，如 SS27"></div>
+    <div class="field"><label>Article#</label><input id="f-article" type="text" placeholder="布號 / 料號"></div>
+    <div class="field"><label>CW</label><input id="f-cw" type="text" placeholder="可裁幅寬"></div>
+    <div class="field"><label>GSM</label><input id="f-gsm" type="text" placeholder="克重"></div>
+    <div class="field"><label>Knitter</label><input id="f-knitter" type="text" placeholder="織廠"></div>
+    <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
+    <div class="field"><label>Yarn</label><textarea id="f-yarn" rows="2" placeholder="紗支"></textarea></div>
+    <div class="field"><label>Due Date</label><input id="f-duedate" type="date"></div>
+    <div class="field"><label>開發狀態</label>
+      <select id="f-status"></select>
+    </div>
+    <div class="field"><label>優先度</label>
+      <select id="f-priority">
+        <option value="">— 未設定 —</option>
+        <option value="高">高</option>
+        <option value="中">中</option>
+        <option value="低">低</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">取消</button>
+      <button class="btn-confirm" onclick="saveCustomer()">儲存</button>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+const STATUSES=['待分析/提案','待紗中','試布中','測試中','待客評/確認','已核可','完成','暫緩','取消'];
+const STATUS_COLORS=[
+  {bg:'#F0E6FB',fg:'#5B1E8C',border:'#7B3DBF'},
+  {bg:'#E6F1FB',fg:'#0C447C',border:'#185FA5'},
+  {bg:'#FAEEDA',fg:'#633806',border:'#854F0B'},
+  {bg:'#DFF3F0',fg:'#0B5E52',border:'#12836F'},
+  {bg:'#FBEAF0',fg:'#72243E',border:'#993356'},
+  {bg:'#EAF3DE',fg:'#27500A',border:'#3B6D11'},
+  {bg:'#DCEFE0',fg:'#1F6D3A',border:'#2E9450'},
+  {bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'},
+  {bg:'#FAE3E1',fg:'#8C2F2F',border:'#B23B3B'}
+];
+const PRIORITIES=['高','中','低'];
+const PRIORITY_COLORS={
+  '高':{bg:'#FBEAF0',fg:'#72243E',border:'#993356'},
+  '中':{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'},
+  '低':{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'}
+};
+const DEV_TYPES=['客指開發','自主開發','概念驗證','Sourcing'];
+const DEV_TYPE_COLORS={
+  '客指開發':{bg:'#E6F1FB',fg:'#0C447C',border:'#185FA5'},
+  '自主開發':{bg:'#EAF3DE',fg:'#27500A',border:'#3B6D11'},
+  '概念驗證':{bg:'#F0E6FB',fg:'#5B1E8C',border:'#7B3DBF'},
+  'Sourcing':{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'}
+};
+const DUE_RANGES=[7,14];
+const DUE_RANGE_COLORS={7:{bg:'#FBEAF0',fg:'#72243E',border:'#993356'},14:{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'}};
+const TODAY=new Date().toISOString().slice(0,10);
+
+function statusColor(s){const i=STATUSES.indexOf(s);return STATUS_COLORS[i]||STATUS_COLORS[0];}
+function priorityColor(p){return PRIORITY_COLORS[p]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
+function devTypeColor(t){return DEV_TYPE_COLORS[t]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
+function dueRangeColor(n){return DUE_RANGE_COLORS[n]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
+function daysUntil(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((d-t)/86400000);}
+
+function logMatchesToday(text){
+  const[ty,tm,td]=TODAY.split('-');
+  const patterns=[/\d{4}[-\/]\d{1,2}[-\/]\d{1,2}/g,/\d{1,2}[-\/]\d{1,2}/g];
+  for(const re of patterns){
+    const matches=text.match(re)||[];
+    for(const m of matches){
+      const parts=m.split(/[-\/]/);
+      if(parts.length===3){const[y,mo,d]=[parts[0].padStart(4,'0'),parts[1].padStart(2,'0'),parts[2].padStart(2,'0')];if(y===ty&&mo===tm&&d===td)return true;}
+      else if(parts.length===2){const[mo,d]=[parts[0].padStart(2,'0'),parts[1].padStart(2,'0')];if(mo===tm&&d===td)return true;}
+    }
+  }
+  return false;
+}
+function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.text));}
+
+let customers=JSON.parse(localStorage.getItem('dev_tracker_v1')||'null')||[];
+let nextId=Math.max(0,...customers.map(c=>c.id))+1;
+let nextLogId=200;
+let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
+
+function save(){localStorage.setItem('dev_tracker_v1',JSON.stringify(customers));}
+function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
+function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';syncChips();render();}
+function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
+function togglePriority(p){activePriorities.has(p)?activePriorities.delete(p):activePriorities.add(p);syncChips();render();}
+function toggleDevType(t){activeDevTypes.has(t)?activeDevTypes.delete(t):activeDevTypes.add(t);syncChips();render();}
+function toggleDueRange(n){activeDueRanges.has(n)?activeDueRanges.delete(n):activeDueRanges.add(n);syncChips();render();}
+
+function buildFilters(){
+  document.getElementById('status-chips').innerHTML=STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-status-${i}" onclick="toggleStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
+  document.getElementById('priority-chips').innerHTML=PRIORITIES.map(p=>`<label class="filter-chip" id="chip-priority-${p}" onclick="togglePriority('${p}')"><span class="dot"></span>${p}</label>`).join('');
+  document.getElementById('devtype-chips').innerHTML=DEV_TYPES.map((t,i)=>`<label class="filter-chip" id="chip-devtype-${i}" onclick="toggleDevType('${t}')"><span class="dot"></span>${t}</label>`).join('');
+  document.getElementById('duerange-chips').innerHTML=DUE_RANGES.map(n=>`<label class="filter-chip" id="chip-duerange-${n}" onclick="toggleDueRange(${n})"><span class="dot"></span>${n}天內</label>`).join('');
+  const sel=document.getElementById('f-status');
+  sel.innerHTML=STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
+}
+
+function buildBrandOptions(){
+  const sel=document.getElementById('brand-filter');if(!sel)return;
+  const current=sel.value;
+  const brands=[...new Set(customers.map(c=>c.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  sel.innerHTML='<option value="">全部品牌</option>'+brands.map(b=>`<option value="${b}">${b}</option>`).join('');
+  sel.value=brands.includes(current)?current:'';
+}
+
+function syncChips(){
+  const bf=document.getElementById('brand-filter');
+  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&(!bf||!bf.value);
+  document.getElementById('chip-all').classList.toggle('checked',none);
+  STATUSES.forEach((s,i)=>{
+    const el=document.getElementById('chip-status-'+i);if(!el)return;
+    const on=activeStatuses.has(s);
+    el.classList.toggle('checked',on);
+    if(on){const c=statusColor(s);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
+  PRIORITIES.forEach(p=>{
+    const el=document.getElementById('chip-priority-'+p);if(!el)return;
+    const on=activePriorities.has(p);
+    el.classList.toggle('checked',on);
+    if(on){const c=priorityColor(p);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
+  DEV_TYPES.forEach((t,i)=>{
+    const el=document.getElementById('chip-devtype-'+i);if(!el)return;
+    const on=activeDevTypes.has(t);
+    el.classList.toggle('checked',on);
+    if(on){const c=devTypeColor(t);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
+  DUE_RANGES.forEach(n=>{
+    const el=document.getElementById('chip-duerange-'+n);if(!el)return;
+    const on=activeDueRanges.has(n);
+    el.classList.toggle('checked',on);
+    if(on){const c=dueRangeColor(n);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
+}
+
+function openModal(id=null){
+  editingCustomerId=id;
+  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-gauge','f-yarn','f-duedate'];
+  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','gauge','yarn','dueDate'];
+  if(id){
+    const c=customers.find(x=>x.id===id);
+    document.getElementById('modal-title').textContent='編輯項目';
+    fields.forEach((f,i)=>document.getElementById(f).value=c[keys[i]]||'');
+    document.getElementById('f-status').value=c.status;
+    document.getElementById('f-priority').value=c.priority||'';
+  }else{
+    document.getElementById('modal-title').textContent='新增項目';
+    fields.forEach(f=>document.getElementById(f).value='');
+    document.getElementById('f-status').value=STATUSES[0];
+    document.getElementById('f-priority').value='';
+  }
+  document.getElementById('modal-bg').style.display='flex';setTimeout(()=>document.getElementById('f-brand').focus(),50);
+}
+function closeModal(){document.getElementById('modal-bg').style.display='none';editingCustomerId=null;}
+function saveCustomer(){
+  const brand=document.getElementById('f-brand').value.trim();if(!brand){document.getElementById('f-brand').focus();return;}
+  const data={
+    brand,
+    devType:document.getElementById('f-devtype').value,
+    developer:document.getElementById('f-developer').value.trim(),
+    request:document.getElementById('f-request').value.trim(),
+    family:document.getElementById('f-family').value.trim(),
+    season:document.getElementById('f-season').value.trim(),
+    article:document.getElementById('f-article').value.trim(),
+    cw:document.getElementById('f-cw').value.trim(),
+    gsm:document.getElementById('f-gsm').value.trim(),
+    knitter:document.getElementById('f-knitter').value.trim(),
+    gauge:document.getElementById('f-gauge').value.trim(),
+    yarn:document.getElementById('f-yarn').value.trim(),
+    dueDate:document.getElementById('f-duedate').value,
+    status:document.getElementById('f-status').value,
+    priority:document.getElementById('f-priority').value,
+    updatedAt:TODAY
+  };
+  if(editingCustomerId){Object.assign(customers.find(x=>x.id===editingCustomerId),data);}
+  else{customers.unshift({id:nextId++,logs:[],...data});}
+  save();closeModal();render();
+}
+function deleteCustomer(id){customers=customers.filter(c=>c.id!==id);if(openCardId===id)openCardId=null;save();render();}
+function setStatus(id,s){const c=customers.find(x=>x.id===id);c.status=s;c.updatedAt=TODAY;save();renderCardBody(id);render();}
+function setPriority(id,p){const c=customers.find(x=>x.id===id);c.priority=p;c.updatedAt=TODAY;save();renderCardBody(id);render();}
+function addLog(id){const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;const c=customers.find(x=>x.id===id);c.logs.unshift({id:nextLogId++,date:TODAY,text});c.updatedAt=TODAY;inp.value='';save();renderCardBody(id);render();}
+function deleteLog(cid,lid){const c=customers.find(x=>x.id===cid);c.logs=c.logs.filter(l=>l.id!==lid);save();renderCardBody(cid);render();}
+function startEditLog(cid,lid){document.getElementById('log-view-'+lid).style.display='none';document.getElementById('log-form-'+lid).classList.add('open');}
+function cancelEditLog(lid){document.getElementById('log-view-'+lid).style.display='flex';document.getElementById('log-form-'+lid).classList.remove('open');}
+function saveEditLog(cid,lid){const c=customers.find(x=>x.id===cid);const log=c.logs.find(l=>l.id===lid);const txt=document.getElementById('log-edit-text-'+lid).value.trim();const dt=document.getElementById('log-edit-date-'+lid).value;if(!txt)return;log.text=txt;if(dt)log.date=dt;save();renderCardBody(cid);render();}
+function toggleCard(id){openCardId=openCardId===id?null:id;render();}
+
+function renderCardBody(id){
+  const c=customers.find(x=>x.id===id);
+  const el=document.getElementById('body-'+id);if(!el)return;
+  if(openCardId!==id){el.className='card-body';el.innerHTML='';return;}
+  el.className='card-body open';
+  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate]];
+  const longFields=[['Request',c.request],['Yarn',c.yarn]];
+  const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
+  const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
+  const infoHTML=(shortItems||longItems)?`${shortItems?`<div class="info-grid">${shortItems}</div>`:''}${longItems}`:'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:6px">尚無其他資訊，點「編輯項目」補上</div>';
+  const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return `<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus(${id},'${s}')">${s}</button>`;}).join('');
+  const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return `<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority(${id},'${p}')">${p}</button>`;}).join('');
+  const logsHTML=c.logs.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog(${id},${l.id})"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog(${id},${l.id})"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog(${id},${l.id})">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog(${l.id})">取消</button></div></div></div>`;}).join('');
+  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog(${id})"><button class="btn-log" onclick="addLog(${id})">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div><div class="card-footer"><button class="btn-edit-c" onclick="openModal(${id})"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer(${id})"><i class="ti ti-trash"></i> 刪除</button></div>`;
+}
+
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+function exportData(){
+  const data=JSON.stringify(customers,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const date=new Date().toISOString().slice(0,10);
+  a.href=url;a.download='dev_tracker_backup_'+date+'.json';
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+  showToast('✓ 已匯出 '+customers.length+' 筆資料');
+}
+
+function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const imported=JSON.parse(e.target.result);
+      if(!Array.isArray(imported))throw new Error('格式錯誤');
+      const existingIds=new Set(customers.map(c=>c.id));
+      let added=0,updated=0;
+      imported.forEach(c=>{
+        if(!c.id||!c.brand)return;
+        if(existingIds.has(c.id)){
+          const idx=customers.findIndex(x=>x.id===c.id);
+          if(idx>=0){customers[idx]={...customers[idx],...c};updated++;}
+        } else {
+          if(!c.logs)c.logs=[];
+          customers.unshift(c);added++;existingIds.add(c.id);
+        }
+      });
+      nextId=Math.max(0,...customers.map(c=>c.id))+1;
+      save();render();
+      showToast('✓ 匯入完成：新增 '+added+' 筆，更新 '+updated+' 筆');
+    }catch(err){
+      showToast('✗ 匯入失敗，請確認是正確的備份檔案');
+    }
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+function render(){
+  buildBrandOptions();
+  const q=document.getElementById('search').value.toLowerCase();
+  const brandVal=document.getElementById('brand-filter').value;
+  let list=customers.filter(c=>{
+    if(activeStatuses.size&&!activeStatuses.has(c.status))return false;
+    if(activePriorities.size&&!activePriorities.has(c.priority))return false;
+    if(brandVal&&c.brand!==brandVal)return false;
+    if(activeDevTypes.size&&!activeDevTypes.has(c.devType))return false;
+    if(activeDueRanges.size){
+      const maxRange=Math.max(...activeDueRanges);
+      const du=daysUntil(c.dueDate);
+      if(du===null||du>maxRange)return false;
+    }
+    if(q){
+      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.yarn].join(' ').toLowerCase();
+      if(!hay.includes(q))return false;
+    }
+    return true;
+  });
+  list.sort((a,b)=>(hasFollowupToday(b)?1:0)-(hasFollowupToday(a)?1:0));
+  const byStatus={};STATUSES.forEach(s=>byStatus[s]=0);list.forEach(c=>byStatus[c.status]=(byStatus[c.status]||0)+1);
+  document.getElementById('stats-row').innerHTML=`<div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">項目數</div></div>${STATUSES.filter(s=>byStatus[s]).map(s=>`<div class="stat-card"><div class="stat-num">${byStatus[s]}</div><div class="stat-label">${s}</div></div>`).join('')}`;
+  const el=document.getElementById('customer-list');
+  if(!list.length){el.innerHTML='<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>沒有符合的項目</div>';return;}
+  el.innerHTML=list.map(c=>{
+    const[abg,atxt]=avatarColors(c.brand),isOpen=openCardId===c.id,latestLog=c.logs&&c.logs.length?c.logs[0]:null,followup=hasFollowupToday(c);
+    const sc=statusColor(c.status);
+    const pc=c.priority?priorityColor(c.priority):null;
+    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard(${c.id})"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div><i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
+  }).join('');
+  list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
+}
+
+customers.forEach(c=>{if(!c.logs)c.logs=[];});
+buildFilters();
+document.getElementById('chip-all').classList.add('checked');
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+render();
+</script>
+</body>
+</html>
