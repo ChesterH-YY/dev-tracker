@@ -653,9 +653,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
-const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com'];
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com'];
 const ADMIN_EMAILS=['ches.0301@gmail.com'];
-const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna'};
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire'};
 let currentUserEmail=null;
 function canEdit(c){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
 let itemsRef=null;
