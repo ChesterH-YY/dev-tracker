@@ -619,7 +619,9 @@ function render(){
 }
 
 buildFilters();
-document.getElementById('chip-all').classList.add('checked');
+const DEFAULT_HIDDEN_STATUSES=['完成','暫緩','取消'];
+STATUSES.forEach(s=>{if(!DEFAULT_HIDDEN_STATUSES.includes(s))activeStatuses.add(s);});
+syncChips();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 /* ────────────────────────────────────────────────────────────
