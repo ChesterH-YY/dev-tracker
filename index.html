@@ -60,6 +60,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .customer-list{display:flex;flex-direction:column;gap:10px;}
 .customer-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
 .customer-card.has-followup{border-color:#E05252;}
+.customer-card.is-overdue{border-left:3px solid #B3261E;}
 .card-header{display:flex;align-items:center;gap:10px;padding:.9rem 1.25rem;cursor:pointer;user-select:none;}
 .card-header:hover{background:var(--color-background-secondary);}
 .avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;position:relative;}
@@ -73,6 +74,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .card-badges{display:flex;gap:5px;align-items:center;}
 .badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;white-space:nowrap;}
 .card-last{font-size:11px;color:var(--color-text-tertiary);}
+.card-last.overdue-text{color:#B3261E;font-weight:600;}
 .card-body{display:none;border-top:0.5px solid var(--color-border-tertiary);padding:1rem 1.25rem;}
 .card-body.open{display:block;}
 .section-label{font-size:12px;color:var(--color-text-secondary);font-weight:500;margin-bottom:8px;margin-top:14px;}
@@ -323,8 +325,10 @@ const DEV_TYPE_COLORS={
   '概念驗證':{bg:'#F0E6FB',fg:'#5B1E8C',border:'#7B3DBF'},
   'Sourcing':{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'}
 };
-const DUE_RANGES=[7,14];
-const DUE_RANGE_COLORS={7:{bg:'#FBEAF0',fg:'#72243E',border:'#993356'},14:{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'}};
+const DUE_RANGES=[7,14,'overdue'];
+const DUE_RANGE_COLORS={7:{bg:'#FBEAF0',fg:'#72243E',border:'#993356'},14:{bg:'#FAEEDA',fg:'#633806',border:'#854F0B'},overdue:{bg:'#FBE9E7',fg:'#8C1D18',border:'#B3261E'}};
+const DUE_RANGE_LABELS={overdue:'已逾期'};
+function dueRangeLabel(n){return DUE_RANGE_LABELS[n]||(n+'天內');}
 const TODAY=new Date().toISOString().slice(0,10);
 
 function statusColor(s){const i=STATUSES.indexOf(s);return STATUS_COLORS[i]||STATUS_COLORS[0];}
@@ -332,6 +336,7 @@ function priorityColor(p){return PRIORITY_COLORS[p]||{bg:'#F1EFE8',fg:'#444441',
 function devTypeColor(t){return DEV_TYPE_COLORS[t]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
 function dueRangeColor(n){return DUE_RANGE_COLORS[n]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
 function daysUntil(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((d-t)/86400000);}
+function isOverdue(c){const du=daysUntil(c.dueDate);return du!==null&&du<0&&c.status!=='完成'&&c.status!=='取消';}
 
 function logMatchesToday(text){
   const[ty,tm,td]=TODAY.split('-');
@@ -366,7 +371,7 @@ function buildFilters(){
   document.getElementById('status-chips').innerHTML=STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-status-${i}" onclick="toggleStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
   document.getElementById('priority-chips').innerHTML=PRIORITIES.map(p=>`<label class="filter-chip" id="chip-priority-${p}" onclick="togglePriority('${p}')"><span class="dot"></span>${p}</label>`).join('');
   document.getElementById('devtype-chips').innerHTML=DEV_TYPES.map((t,i)=>`<label class="filter-chip" id="chip-devtype-${i}" onclick="toggleDevType('${t}')"><span class="dot"></span>${t}</label>`).join('');
-  document.getElementById('duerange-chips').innerHTML=DUE_RANGES.map(n=>`<label class="filter-chip" id="chip-duerange-${n}" onclick="toggleDueRange(${n})"><span class="dot"></span>${n}天內</label>`).join('');
+  document.getElementById('duerange-chips').innerHTML=DUE_RANGES.map(n=>{const arg=typeof n==='number'?n:`'${n}'`;return `<label class="filter-chip" id="chip-duerange-${n}" onclick="toggleDueRange(${arg})"><span class="dot"></span>${dueRangeLabel(n)}</label>`;}).join('');
   const sel=document.getElementById('f-status');
   sel.innerHTML=STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
 }
@@ -593,9 +598,15 @@ function render(){
     if(creatorVal&&c.createdBy!==creatorVal)return false;
     if(activeDevTypes.size&&!activeDevTypes.has(c.devType))return false;
     if(activeDueRanges.size){
-      const maxRange=Math.max(...activeDueRanges);
+      const numRanges=[...activeDueRanges].filter(v=>typeof v==='number');
+      const wantsOverdue=activeDueRanges.has('overdue');
       const du=daysUntil(c.dueDate);
-      if(du===null||du>maxRange)return false;
+      let dueMatch=false;
+      if(du!==null){
+        if(numRanges.length&&du>=0&&du<=Math.max(...numRanges))dueMatch=true;
+        if(wantsOverdue&&du<0)dueMatch=true;
+      }
+      if(!dueMatch)return false;
     }
     if(q){
       const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.yarn].join(' ').toLowerCase();
@@ -612,8 +623,9 @@ function render(){
     const[abg,atxt]=avatarColors(c.brand),isOpen=openCardId===c.id,latestLog=c.logs&&c.logs.length?c.logs[0]:null,followup=hasFollowupToday(c);
     const sc=statusColor(c.status);
     const pc=c.priority?priorityColor(c.priority):null;
+    const overdue=isOverdue(c);
     const lockIcon=canEdit(c)?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
-    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
+    return`<div class="customer-card${followup?' has-followup':''}${overdue?' is-overdue':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last${overdue?' overdue-text':''}">${overdue?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
   }).join('');
   list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
