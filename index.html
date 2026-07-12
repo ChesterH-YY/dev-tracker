@@ -80,8 +80,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:6px;font-size:13px;}
 .info-item{color:var(--color-text-secondary);}
 .info-item strong{color:var(--color-text-primary);font-weight:500;}
-.info-item-block{color:var(--color-text-secondary);margin-bottom:6px;line-height:1.5;}
-.info-item-block strong{color:var(--color-text-primary);font-weight:500;display:block;margin-top:2px;}
+.info-item-block{color:var(--color-text-secondary);margin-bottom:6px;line-height:1.5;font-size:12px;}
+.info-item-block strong{color:var(--color-text-primary);font-weight:500;display:block;margin-top:2px;font-size:12px;}
 .status-grid{display:flex;gap:6px;flex-wrap:wrap;}
 .status-btn,.priority-btn{padding:4px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-secondary);color:var(--color-text-secondary);transition:all .12s;}
 .status-btn.sel,.priority-btn.sel{border-color:transparent;font-weight:500;}
@@ -107,6 +107,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .btn-log{padding:7px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);}
 .btn-log:hover{background:var(--color-background-secondary);}
 .log-hint{font-size:11px;color:var(--color-text-tertiary);margin-top:5px;}
+.btn-log-toggle{display:block;width:100%;text-align:center;padding:7px;border:0.5px dashed var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;margin-bottom:8px;}
+.btn-log-toggle:hover{background:var(--color-background-secondary);}
 .card-footer{display:flex;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);gap:6px;}
 .btn-edit-c{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);}
 .btn-edit-c:hover{background:var(--color-background-secondary);}
@@ -253,8 +255,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="field"><label>Family</label><input id="f-family" type="text" placeholder="系列 / Family"></div>
     <div class="field"><label>Season</label><input id="f-season" type="text" placeholder="季節，如 SS27"></div>
     <div class="field"><label>Article#</label><input id="f-article" type="text" placeholder="布號 / 料號"></div>
-    <div class="field"><label>CW</label><input id="f-cw" type="text" placeholder="可裁幅寬"></div>
-    <div class="field"><label>GSM</label><input id="f-gsm" type="text" placeholder="克重"></div>
+    <div class="field"><label>CW</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="可裁幅寬（純數字）"></div>
+    <div class="field"><label>GSM</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="克重（純數字）"></div>
     <div class="field"><label>Knitter</label><input id="f-knitter" type="text" placeholder="織廠"></div>
     <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
     <div class="field"><label>Yarn</label><textarea id="f-yarn" rows="2" placeholder="紗支"></textarea></div>
@@ -349,6 +351,9 @@ function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.tex
 let customers=[];
 function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
+let expandedLogIds=new Set();
+const LOG_PREVIEW_COUNT=3;
+function toggleLogsExpand(id){expandedLogIds.has(id)?expandedLogIds.delete(id):expandedLogIds.add(id);renderCardBody(id);}
 
 function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
 function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';const cf=document.getElementById('creator-filter');if(cf)cf.value='';syncChips();render();}
@@ -521,9 +526,12 @@ function renderCardBody(id){
   const infoHTML=(shortItems||longItems)?`${shortItems?`<div class="info-grid">${shortItems}</div>`:''}${longItems}`:'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:6px">尚無其他資訊，點「編輯項目」補上</div>';
   const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus('${id}','${s}')">${s}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${s}</span>`;}).join('');
   const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return editable?`<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`:`<span class="priority-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${p}</span>`;}).join('');
-  const logsHTML=c.logs.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
+  const logsExpanded=expandedLogIds.has(id);
+  const logsToRender=logsExpanded?c.logs:c.logs.slice(0,LOG_PREVIEW_COUNT);
+  const logsHTML=logsToRender.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
+  const logsToggleHTML=c.logs.length>LOG_PREVIEW_COUNT?`<button class="btn-log-toggle" onclick="toggleLogsExpand('${id}')">${logsExpanded?'收合紀錄':'展開全部 '+c.logs.length+' 筆紀錄'}</button>`:'';
   const footerHTML=editable?`<div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:flex-start;color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</div>`;
-  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>${footerHTML}`;
+  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggleHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>${footerHTML}`;
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
