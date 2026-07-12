@@ -554,10 +554,11 @@ function importData(event){
         if(!c.brand)return;
         const {id,...rest}=c;
         if(id&&existingIds.has(id)){
-          ops.push(itemsRef.doc(id).update(rest).then(()=>updated++));
+          ops.push(itemsRef.doc(id).update(rest).then(()=>updated++).catch(err=>showToast('✗ 更新「'+(rest.article||rest.brand)+'」失敗：'+err.message)));
         } else {
           if(!rest.logs)rest.logs=[];
-          ops.push(itemsRef.add(rest).then(()=>added++));
+          if(!rest.createdBy)rest.createdBy=currentUserEmail;
+          ops.push(itemsRef.add(rest).then(()=>added++).catch(err=>showToast('✗ 新增「'+(rest.article||rest.brand)+'」失敗：'+err.message)));
         }
       });
       Promise.all(ops).then(()=>{
