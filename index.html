@@ -425,6 +425,10 @@ function openModal(id=null){
 function closeModal(){document.getElementById('modal-bg').style.display='none';editingCustomerId=null;}
 function saveCustomer(){
   const brand=document.getElementById('f-brand').value.trim();if(!brand){document.getElementById('f-brand').focus();return;}
+  if(editingCustomerId){
+    const existing=customers.find(x=>x.id===editingCustomerId);
+    if(existing && !canEdit(existing)){showToast('✗ 你沒有權限編輯這筆資料');closeModal();return;}
+  }
   const data={
     brand,
     devType:document.getElementById('f-devtype').value,
@@ -446,16 +450,26 @@ function saveCustomer(){
   if(editingCustomerId){
     itemsRef.doc(editingCustomerId).update(data).catch(err=>showToast('✗ 更新失敗：'+err.message));
   } else {
-    itemsRef.add({logs:[],...data}).catch(err=>showToast('✗ 新增失敗：'+err.message));
+    itemsRef.add({logs:[],createdBy:currentUserEmail,...data}).catch(err=>showToast('✗ 新增失敗：'+err.message));
   }
   closeModal();
 }
 function deleteCustomer(id){
+  const c=customers.find(x=>x.id===id);
+  if(c&&!canEdit(c)){showToast('✗ 你沒有權限刪除這筆資料');return;}
   if(openCardId===id)openCardId=null;
   itemsRef.doc(id).delete().catch(err=>showToast('✗ 刪除失敗：'+err.message));
 }
-function setStatus(id,s){itemsRef.doc(id).update({status:s,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));}
-function setPriority(id,p){itemsRef.doc(id).update({priority:p,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));}
+function setStatus(id,s){
+  const c=customers.find(x=>x.id===id);
+  if(c&&!canEdit(c)){showToast('✗ 你沒有權限修改這筆資料');return;}
+  itemsRef.doc(id).update({status:s,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
+}
+function setPriority(id,p){
+  const c=customers.find(x=>x.id===id);
+  if(c&&!canEdit(c)){showToast('✗ 你沒有權限修改這筆資料');return;}
+  itemsRef.doc(id).update({priority:p,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
+}
 function addLog(id){
   const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;
   const c=customers.find(x=>x.id===id);if(!c)return;
@@ -485,15 +499,17 @@ function renderCardBody(id){
   const el=document.getElementById('body-'+id);if(!el)return;
   if(openCardId!==id){el.className='card-body';el.innerHTML='';return;}
   el.className='card-body open';
-  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate]];
+  const editable=canEdit(c);
+  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',c.createdBy]];
   const longFields=[['Request',c.request],['Yarn',c.yarn]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
   const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
   const infoHTML=(shortItems||longItems)?`${shortItems?`<div class="info-grid">${shortItems}</div>`:''}${longItems}`:'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:6px">尚無其他資訊，點「編輯項目」補上</div>';
-  const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return `<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus('${id}','${s}')">${s}</button>`;}).join('');
-  const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return `<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`;}).join('');
+  const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus('${id}','${s}')">${s}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${s}</span>`;}).join('');
+  const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return editable?`<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`:`<span class="priority-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${p}</span>`;}).join('');
   const logsHTML=c.logs.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
-  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div><div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`;
+  const footerHTML=editable?`<div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:flex-start;color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</div>`;
+  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>${footerHTML}`;
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
@@ -570,7 +586,8 @@ function render(){
     const[abg,atxt]=avatarColors(c.brand),isOpen=openCardId===c.id,latestLog=c.logs&&c.logs.length?c.logs[0]:null,followup=hasFollowupToday(c);
     const sc=statusColor(c.status);
     const pc=c.priority?priorityColor(c.priority):null;
-    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div><i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
+    const lockIcon=canEdit(c)?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
+    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
   }).join('');
   list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
@@ -583,6 +600,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
 const ALLOWED_EMAILS=['ches.0301@gmail.com','chester.h@yuyuang.com.tw'];
+const ADMIN_EMAILS=['ches.0301@gmail.com'];
+let currentUserEmail=null;
+function canEdit(c){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
 let itemsRef=null;
 let unsubscribeItems=null;
 
@@ -627,13 +647,16 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
   firebase.initializeApp(firebaseConfig);
   firebase.auth().onAuthStateChanged(user=>{
     if(!user){
+      currentUserEmail=null;
       showScreen('login');
       detachFirestoreListener();
     } else if(!ALLOWED_EMAILS.includes(user.email)){
+      currentUserEmail=null;
       document.getElementById('unauthorized-email').textContent=user.email;
       showScreen('unauthorized');
       detachFirestoreListener();
     } else {
+      currentUserEmail=user.email;
       document.getElementById('user-email-display').textContent=user.email;
       showScreen('app');
       attachFirestoreListener();
