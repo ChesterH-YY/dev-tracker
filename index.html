@@ -251,7 +251,22 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
+/* ────────────────────────────────────────────────────────────
+   Firebase 設定：請把下面換成你自己 Firebase 專案的設定值
+   （Firebase Console → 專案設定 → 一般 → 新增網頁應用程式 → SDK 設定與程式碼）
+   ──────────────────────────────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyB7VtNAwE4zzB91Jy7MTbZtMXL9Tx8xEzI",
+  authDomain: "dev-tracker-fdba4.firebaseapp.com",
+  projectId: "dev-tracker-fdba4",
+  storageBucket: "dev-tracker-fdba4.firebasestorage.app",
+  messagingSenderId: "887214613991",
+  appId: "1:887214613991:web:ffaead79ec6ba4ece68942"
+};
+
 const STATUSES=['待分析/提案','待紗中','試布中','測試中','待客評/確認','已核可','完成','暫緩','取消'];
 const STATUS_COLORS=[
   {bg:'#F0E6FB',fg:'#5B1E8C',border:'#7B3DBF'},
@@ -302,12 +317,10 @@ function logMatchesToday(text){
 }
 function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.text));}
 
-let customers=JSON.parse(localStorage.getItem('dev_tracker_v1')||'null')||[];
-let nextId=Math.max(0,...customers.map(c=>c.id))+1;
-let nextLogId=200;
+let customers=[];
+function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
 
-function save(){localStorage.setItem('dev_tracker_v1',JSON.stringify(customers));}
 function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
 function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';syncChips();render();}
 function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
@@ -405,18 +418,41 @@ function saveCustomer(){
     priority:document.getElementById('f-priority').value,
     updatedAt:TODAY
   };
-  if(editingCustomerId){Object.assign(customers.find(x=>x.id===editingCustomerId),data);}
-  else{customers.unshift({id:nextId++,logs:[],...data});}
-  save();closeModal();render();
+  if(editingCustomerId){
+    itemsRef.doc(editingCustomerId).update(data).catch(err=>showToast('✗ 更新失敗：'+err.message));
+  } else {
+    itemsRef.add({logs:[],...data}).catch(err=>showToast('✗ 新增失敗：'+err.message));
+  }
+  closeModal();
 }
-function deleteCustomer(id){customers=customers.filter(c=>c.id!==id);if(openCardId===id)openCardId=null;save();render();}
-function setStatus(id,s){const c=customers.find(x=>x.id===id);c.status=s;c.updatedAt=TODAY;save();renderCardBody(id);render();}
-function setPriority(id,p){const c=customers.find(x=>x.id===id);c.priority=p;c.updatedAt=TODAY;save();renderCardBody(id);render();}
-function addLog(id){const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;const c=customers.find(x=>x.id===id);c.logs.unshift({id:nextLogId++,date:TODAY,text});c.updatedAt=TODAY;inp.value='';save();renderCardBody(id);render();}
-function deleteLog(cid,lid){const c=customers.find(x=>x.id===cid);c.logs=c.logs.filter(l=>l.id!==lid);save();renderCardBody(cid);render();}
+function deleteCustomer(id){
+  if(openCardId===id)openCardId=null;
+  itemsRef.doc(id).delete().catch(err=>showToast('✗ 刪除失敗：'+err.message));
+}
+function setStatus(id,s){itemsRef.doc(id).update({status:s,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));}
+function setPriority(id,p){itemsRef.doc(id).update({priority:p,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));}
+function addLog(id){
+  const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;
+  const c=customers.find(x=>x.id===id);if(!c)return;
+  const newLogs=[{id:newLogId(),date:TODAY,text},...(c.logs||[])];
+  inp.value='';
+  itemsRef.doc(id).update({logs:newLogs,updatedAt:TODAY}).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
+}
+function deleteLog(cid,lid){
+  const c=customers.find(x=>x.id===cid);if(!c)return;
+  const newLogs=(c.logs||[]).filter(l=>l.id!==lid);
+  itemsRef.doc(cid).update({logs:newLogs}).catch(err=>showToast('✗ 刪除紀錄失敗：'+err.message));
+}
 function startEditLog(cid,lid){document.getElementById('log-view-'+lid).style.display='none';document.getElementById('log-form-'+lid).classList.add('open');}
 function cancelEditLog(lid){document.getElementById('log-view-'+lid).style.display='flex';document.getElementById('log-form-'+lid).classList.remove('open');}
-function saveEditLog(cid,lid){const c=customers.find(x=>x.id===cid);const log=c.logs.find(l=>l.id===lid);const txt=document.getElementById('log-edit-text-'+lid).value.trim();const dt=document.getElementById('log-edit-date-'+lid).value;if(!txt)return;log.text=txt;if(dt)log.date=dt;save();renderCardBody(cid);render();}
+function saveEditLog(cid,lid){
+  const c=customers.find(x=>x.id===cid);if(!c)return;
+  const txt=document.getElementById('log-edit-text-'+lid).value.trim();
+  const dt=document.getElementById('log-edit-date-'+lid).value;
+  if(!txt)return;
+  const newLogs=(c.logs||[]).map(l=>l.id===lid?{...l,text:txt,date:dt||l.date}:l);
+  itemsRef.doc(cid).update({logs:newLogs}).catch(err=>showToast('✗ 更新紀錄失敗：'+err.message));
+}
 function toggleCard(id){openCardId=openCardId===id?null:id;render();}
 
 function renderCardBody(id){
@@ -429,10 +465,10 @@ function renderCardBody(id){
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
   const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
   const infoHTML=(shortItems||longItems)?`${shortItems?`<div class="info-grid">${shortItems}</div>`:''}${longItems}`:'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:6px">尚無其他資訊，點「編輯項目」補上</div>';
-  const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return `<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus(${id},'${s}')">${s}</button>`;}).join('');
-  const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return `<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority(${id},'${p}')">${p}</button>`;}).join('');
-  const logsHTML=c.logs.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog(${id},${l.id})"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog(${id},${l.id})"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog(${id},${l.id})">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog(${l.id})">取消</button></div></div></div>`;}).join('');
-  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog(${id})"><button class="btn-log" onclick="addLog(${id})">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div><div class="card-footer"><button class="btn-edit-c" onclick="openModal(${id})"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer(${id})"><i class="ti ti-trash"></i> 刪除</button></div>`;
+  const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return `<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus('${id}','${s}')">${s}</button>`;}).join('');
+  const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return `<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`;}).join('');
+  const logsHTML=c.logs.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
+  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div><div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`;
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
@@ -458,19 +494,20 @@ function importData(event){
       if(!Array.isArray(imported))throw new Error('格式錯誤');
       const existingIds=new Set(customers.map(c=>c.id));
       let added=0,updated=0;
+      const ops=[];
       imported.forEach(c=>{
-        if(!c.id||!c.brand)return;
-        if(existingIds.has(c.id)){
-          const idx=customers.findIndex(x=>x.id===c.id);
-          if(idx>=0){customers[idx]={...customers[idx],...c};updated++;}
+        if(!c.brand)return;
+        const {id,...rest}=c;
+        if(id&&existingIds.has(id)){
+          ops.push(itemsRef.doc(id).update(rest).then(()=>updated++));
         } else {
-          if(!c.logs)c.logs=[];
-          customers.unshift(c);added++;existingIds.add(c.id);
+          if(!rest.logs)rest.logs=[];
+          ops.push(itemsRef.add(rest).then(()=>added++));
         }
       });
-      nextId=Math.max(0,...customers.map(c=>c.id))+1;
-      save();render();
-      showToast('✓ 匯入完成：新增 '+added+' 筆，更新 '+updated+' 筆');
+      Promise.all(ops).then(()=>{
+        showToast('✓ 匯入完成：新增 '+added+' 筆，更新 '+updated+' 筆');
+      }).catch(err=>showToast('✗ 匯入時發生錯誤：'+err.message));
     }catch(err){
       showToast('✗ 匯入失敗，請確認是正確的備份檔案');
     }
@@ -508,16 +545,34 @@ function render(){
     const[abg,atxt]=avatarColors(c.brand),isOpen=openCardId===c.id,latestLog=c.logs&&c.logs.length?c.logs[0]:null,followup=hasFollowupToday(c);
     const sc=statusColor(c.status);
     const pc=c.priority?priorityColor(c.priority):null;
-    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard(${c.id})"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div><i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
+    return`<div class="customer-card${followup?' has-followup':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last">${c.dueDate||''}</span></div><i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
   }).join('');
   list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
 
-customers.forEach(c=>{if(!c.logs)c.logs=[];});
 buildFilters();
 document.getElementById('chip-all').classList.add('checked');
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
-render();
+
+/* ────────────────────────────────────────────────────────────
+   Firebase 初始化與即時同步：所有分享這個網址的人看到的資料都是
+   同一份（存在 Firestore），任何人新增/編輯/刪除，其他人畫面會自動更新
+   ──────────────────────────────────────────────────────────── */
+let itemsRef=null;
+if(firebaseConfig.apiKey==='YOUR_API_KEY'){
+  document.getElementById('customer-list').innerHTML='<div class="empty"><i class="ti ti-alert-triangle" style="font-size:32px;display:block;margin-bottom:8px"></i>尚未設定 Firebase，請依照說明填入你自己的 firebaseConfig 設定值</div>';
+} else {
+  document.getElementById('customer-list').innerHTML='<div class="empty">載入中…</div>';
+  firebase.initializeApp(firebaseConfig);
+  const db=firebase.firestore();
+  itemsRef=db.collection('dev_tracker_items');
+  itemsRef.onSnapshot(snapshot=>{
+    customers=snapshot.docs.map(doc=>{const d=doc.data();if(!d.logs)d.logs=[];return {id:doc.id,...d};});
+    render();
+  }, err=>{
+    showToast('✗ 讀取資料庫失敗：'+err.message);
+  });
+}
 </script>
 </body>
 </html>
