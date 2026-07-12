@@ -124,6 +124,14 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
 .divider{height:0.5px;background:var(--color-border-tertiary);margin:14px 0;}
+.auth-screen{display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;gap:14px;}
+.auth-screen h2{font-size:20px;font-weight:500;color:var(--color-text-primary);}
+.auth-screen p{font-size:14px;color:var(--color-text-secondary);max-width:320px;line-height:1.6;}
+.btn-google{display:flex;align-items:center;gap:10px;padding:10px 20px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.btn-google:hover{background:var(--color-background-secondary);}
+.user-bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--color-text-secondary);}
+.btn-signout{padding:6px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;white-space:nowrap;}
+.btn-signout:hover{background:var(--color-background-secondary);}
 
 /* ─── Mobile responsive ─── */
 @media (max-width: 640px) {
@@ -170,7 +178,22 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </style>
 </head>
 <body>
-<div class="page">
+
+<div id="login-screen" class="auth-screen">
+  <i class="ti ti-lock" style="font-size:40px;color:var(--color-text-tertiary)"></i>
+  <h2>Development Tracker</h2>
+  <p>請使用 Google 帳號登入以檢視與編輯開發追蹤資料</p>
+  <button class="btn-google" onclick="signInWithGoogle()"><i class="ti ti-brand-google"></i> 使用 Google 登入</button>
+</div>
+
+<div id="unauthorized-screen" class="auth-screen">
+  <i class="ti ti-shield-x" style="font-size:40px;color:#A32D2D"></i>
+  <h2>沒有存取權限</h2>
+  <p>你的帳號（<span id="unauthorized-email"></span>）不在授權名單內，請聯絡管理員新增權限。</p>
+  <button class="btn-signout" onclick="signOutUser()">登出，改用其他帳號</button>
+</div>
+
+<div class="page" id="app-page" style="display:none">
 <div class="crm-wrap">
 <div class="top-bar">
   <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
@@ -179,6 +202,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <button class="btn-io btn-io-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
   <button class="btn-add" onclick="openModal()"><i class="ti ti-plus"></i> 新增項目</button>
+  <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
 <div class="filter-section">
@@ -253,6 +277,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script>
 /* ────────────────────────────────────────────────────────────
    Firebase 設定：請把下面換成你自己 Firebase 專案的設定值
@@ -555,22 +580,64 @@ document.getElementById('chip-all').classList.add('checked');
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 /* ────────────────────────────────────────────────────────────
-   Firebase 初始化與即時同步：所有分享這個網址的人看到的資料都是
-   同一份（存在 Firestore），任何人新增/編輯/刪除，其他人畫面會自動更新
+   登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
+const ALLOWED_EMAILS=['ches.0301@gmail.com'];
 let itemsRef=null;
-if(firebaseConfig.apiKey==='YOUR_API_KEY'){
-  document.getElementById('customer-list').innerHTML='<div class="empty"><i class="ti ti-alert-triangle" style="font-size:32px;display:block;margin-bottom:8px"></i>尚未設定 Firebase，請依照說明填入你自己的 firebaseConfig 設定值</div>';
-} else {
+let unsubscribeItems=null;
+
+function showScreen(which){
+  document.getElementById('login-screen').style.display=which==='login'?'flex':'none';
+  document.getElementById('unauthorized-screen').style.display=which==='unauthorized'?'flex':'none';
+  document.getElementById('app-page').style.display=which==='app'?'block':'none';
+}
+function signInWithGoogle(){
+  const provider=new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(err=>{
+    if(err.code!=='auth/popup-closed-by-user')showToast('✗ 登入失敗：'+err.message);
+  });
+}
+function signOutUser(){firebase.auth().signOut();}
+
+function attachFirestoreListener(){
+  if(itemsRef)return;
   document.getElementById('customer-list').innerHTML='<div class="empty">載入中…</div>';
-  firebase.initializeApp(firebaseConfig);
   const db=firebase.firestore();
   itemsRef=db.collection('dev_tracker_items');
-  itemsRef.onSnapshot(snapshot=>{
+  unsubscribeItems=itemsRef.onSnapshot(snapshot=>{
     customers=snapshot.docs.map(doc=>{const d=doc.data();if(!d.logs)d.logs=[];return {id:doc.id,...d};});
     render();
   }, err=>{
     showToast('✗ 讀取資料庫失敗：'+err.message);
+  });
+}
+function detachFirestoreListener(){
+  if(unsubscribeItems){unsubscribeItems();unsubscribeItems=null;}
+  itemsRef=null;
+  customers=[];
+}
+
+/* ────────────────────────────────────────────────────────────
+   Firebase 初始化與即時同步：所有分享這個網址的人看到的資料都是
+   同一份（存在 Firestore），任何人新增/編輯/刪除，其他人畫面會自動更新
+   ──────────────────────────────────────────────────────────── */
+if(firebaseConfig.apiKey==='YOUR_API_KEY'){
+  document.body.innerHTML='<div class="empty" style="padding:4rem 1rem"><i class="ti ti-alert-triangle" style="font-size:32px;display:block;margin-bottom:8px"></i>尚未設定 Firebase，請依照說明填入你自己的 firebaseConfig 設定值</div>';
+} else {
+  firebase.initializeApp(firebaseConfig);
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user){
+      showScreen('login');
+      detachFirestoreListener();
+    } else if(!ALLOWED_EMAILS.includes(user.email)){
+      document.getElementById('unauthorized-email').textContent=user.email;
+      showScreen('unauthorized');
+      detachFirestoreListener();
+    } else {
+      document.getElementById('user-email-display').textContent=user.email;
+      showScreen('app');
+      attachFirestoreListener();
+    }
   });
 }
 </script>
