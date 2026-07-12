@@ -220,6 +220,10 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <select class="mini-select" id="brand-filter" onchange="syncChips();render()"><option value="">全部品牌</option></select>
   </div>
   <div class="filter-group">
+    <span class="filter-group-label">建立者</span>
+    <select class="mini-select" id="creator-filter" onchange="syncChips();render()"><option value="">全部建立者</option></select>
+  </div>
+  <div class="filter-group">
     <span class="filter-group-label">開發類型</span>
     <span id="devtype-chips"></span>
   </div>
@@ -347,7 +351,7 @@ function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
 
 function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
-function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';syncChips();render();}
+function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';const cf=document.getElementById('creator-filter');if(cf)cf.value='';syncChips();render();}
 function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
 function togglePriority(p){activePriorities.has(p)?activePriorities.delete(p):activePriorities.add(p);syncChips();render();}
 function toggleDevType(t){activeDevTypes.has(t)?activeDevTypes.delete(t):activeDevTypes.add(t);syncChips();render();}
@@ -370,9 +374,19 @@ function buildBrandOptions(){
   sel.value=brands.includes(current)?current:'';
 }
 
+function displayName(email){return USER_NAMES[email]||email||'';}
+
+function buildCreatorOptions(){
+  const sel=document.getElementById('creator-filter');if(!sel)return;
+  const current=sel.value;
+  sel.innerHTML='<option value="">全部建立者</option>'+ALLOWED_EMAILS.map(e=>`<option value="${e}">${displayName(e)}</option>`).join('');
+  sel.value=ALLOWED_EMAILS.includes(current)?current:'';
+}
+
 function syncChips(){
   const bf=document.getElementById('brand-filter');
-  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&(!bf||!bf.value);
+  const cf=document.getElementById('creator-filter');
+  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&(!bf||!bf.value)&&(!cf||!cf.value);
   document.getElementById('chip-all').classList.toggle('checked',none);
   STATUSES.forEach((s,i)=>{
     const el=document.getElementById('chip-status-'+i);if(!el)return;
@@ -500,7 +514,7 @@ function renderCardBody(id){
   if(openCardId!==id){el.className='card-body';el.innerHTML='';return;}
   el.className='card-body open';
   const editable=canEdit(c);
-  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',c.createdBy]];
+  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
   const longFields=[['Request',c.request],['Yarn',c.yarn]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
   const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
@@ -559,12 +573,15 @@ function importData(event){
 
 function render(){
   buildBrandOptions();
+  buildCreatorOptions();
   const q=document.getElementById('search').value.toLowerCase();
   const brandVal=document.getElementById('brand-filter').value;
+  const creatorVal=document.getElementById('creator-filter').value;
   let list=customers.filter(c=>{
     if(activeStatuses.size&&!activeStatuses.has(c.status))return false;
     if(activePriorities.size&&!activePriorities.has(c.priority))return false;
     if(brandVal&&c.brand!==brandVal)return false;
+    if(creatorVal&&c.createdBy!==creatorVal)return false;
     if(activeDevTypes.size&&!activeDevTypes.has(c.devType))return false;
     if(activeDueRanges.size){
       const maxRange=Math.max(...activeDueRanges);
@@ -599,8 +616,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
-const ALLOWED_EMAILS=['ches.0301@gmail.com','chester.h@yuyuang.com.tw','chesterh.yy@gmail.com'];
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com'];
 const ADMIN_EMAILS=['ches.0301@gmail.com'];
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter'};
 let currentUserEmail=null;
 function canEdit(c){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
 let itemsRef=null;
@@ -657,7 +675,7 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       detachFirestoreListener();
     } else {
       currentUserEmail=user.email;
-      document.getElementById('user-email-display').textContent=user.email;
+      document.getElementById('user-email-display').textContent=displayName(user.email);
       showScreen('app');
       attachFirestoreListener();
     }
