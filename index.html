@@ -208,9 +208,9 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
   <input class="search-bar" type="text" placeholder="搜尋 Brand / Article# / Developer..." id="search" oninput="render()">
   <button class="btn-io btn-io-export" onclick="exportData()"><i class="ti ti-download"></i> 匯出</button>
-  <button class="btn-io btn-io-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
+  <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-  <button class="btn-add" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
+  <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
   <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
@@ -262,7 +262,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <select class="mini-select" id="feedback-brand-filter" onchange="syncFeedbackChips();renderFeedback()"><option value="">全部品牌</option></select>
   </div>
   <div class="filter-group">
-    <button class="btn-add" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
+    <button class="btn-add" id="btn-add-feedback" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
   </div>
 </div>
 <div class="stats-row" id="feedback-stats-row"></div>
@@ -507,6 +507,7 @@ function openModal(id=null){
 }
 function closeModal(){document.getElementById('modal-bg').style.display='none';editingCustomerId=null;}
 function saveCustomer(){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closeModal();return;}
   const brand=document.getElementById('f-brand').value.trim();if(!brand){document.getElementById('f-brand').focus();return;}
   if(editingCustomerId){
     const existing=customers.find(x=>x.id===editingCustomerId);
@@ -545,15 +546,16 @@ function deleteCustomer(id){
 }
 function setStatus(id,s){
   const c=customers.find(x=>x.id===id);
-  if(c&&!canEdit(c)){showToast('✗ 你沒有權限修改這筆資料');return;}
+  if(isReadOnly(currentUserEmail)||(c&&!canEdit(c))){showToast('✗ 你沒有權限修改這筆資料');return;}
   itemsRef.doc(id).update({status:s,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
 }
 function setPriority(id,p){
   const c=customers.find(x=>x.id===id);
-  if(c&&!canEdit(c)){showToast('✗ 你沒有權限修改這筆資料');return;}
+  if(isReadOnly(currentUserEmail)||(c&&!canEdit(c))){showToast('✗ 你沒有權限修改這筆資料');return;}
   itemsRef.doc(id).update({priority:p,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
 }
 function addLog(id){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增紀錄');return;}
   const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;
   const c=customers.find(x=>x.id===id);if(!c)return;
   const newLogs=[{id:newLogId(),date:TODAY,text},...(c.logs||[])];
@@ -561,6 +563,7 @@ function addLog(id){
   itemsRef.doc(id).update({logs:newLogs,updatedAt:TODAY}).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
 }
 function deleteLog(cid,lid){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法刪除紀錄');return;}
   const c=customers.find(x=>x.id===cid);if(!c)return;
   const newLogs=(c.logs||[]).filter(l=>l.id!==lid);
   itemsRef.doc(cid).update({logs:newLogs}).catch(err=>showToast('✗ 刪除紀錄失敗：'+err.message));
@@ -568,6 +571,7 @@ function deleteLog(cid,lid){
 function startEditLog(cid,lid){document.getElementById('log-view-'+lid).style.display='none';document.getElementById('log-form-'+lid).classList.add('open');}
 function cancelEditLog(lid){document.getElementById('log-view-'+lid).style.display='flex';document.getElementById('log-form-'+lid).classList.remove('open');}
 function saveEditLog(cid,lid){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法編輯紀錄');return;}
   const c=customers.find(x=>x.id===cid);if(!c)return;
   const txt=document.getElementById('log-edit-text-'+lid).value.trim();
   const dt=document.getElementById('log-edit-date-'+lid).value;
@@ -583,6 +587,7 @@ function renderCardBody(id){
   if(openCardId!==id){el.className='card-body';el.innerHTML='';return;}
   el.className='card-body open';
   const editable=canEdit(c);
+  const canLog=!isReadOnly(currentUserEmail);
   const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
   const longFields=[['Request',c.request],['Yarn',c.yarn]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
@@ -592,10 +597,10 @@ function renderCardBody(id){
   const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return editable?`<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`:`<span class="priority-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${p}</span>`;}).join('');
   const logsExpanded=expandedLogIds.has(id);
   const logsToRender=logsExpanded?c.logs:c.logs.slice(0,LOG_PREVIEW_COUNT);
-  const logsHTML=logsToRender.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span><div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div></div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
+  const logsHTML=logsToRender.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span>${canLog?`<div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div>`:''}</div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
   const logsToggleHTML=c.logs.length>LOG_PREVIEW_COUNT?`<button class="btn-log-toggle" onclick="toggleLogsExpand('${id}')">${logsExpanded?'收合紀錄':'展開全部 '+c.logs.length+' 筆紀錄'}</button>`:'';
   const footerHTML=editable?`<div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:flex-start;color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</div>`;
-  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggleHTML}<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>${footerHTML}`;
+  el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggleHTML}${canLog?`<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>`:''}${footerHTML}`;
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
@@ -708,7 +713,7 @@ function switchView(view){
   document.getElementById('tab-dev').classList.toggle('active',view==='dev');
   document.getElementById('tab-feedback').classList.toggle('active',view==='feedback');
 }
-function canEditFeedback(f){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
+function canEditFeedback(f){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
 function buildFeedbackFilters(){
   document.getElementById('feedback-status-chips').innerHTML=FEEDBACK_STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-fstatus-${i}" onclick="toggleFeedbackStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
 }
@@ -791,6 +796,7 @@ function openFeedbackModal(id=null){
 }
 function closeFeedbackModal(){document.getElementById('feedback-modal-bg').style.display='none';editingFeedbackId=null;}
 function saveFeedback(){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closeFeedbackModal();return;}
   const brand=document.getElementById('fb-brand').value.trim();if(!brand){document.getElementById('fb-brand').focus();return;}
   if(editingFeedbackId){
     const existing=feedbackList.find(x=>x.id===editingFeedbackId);
@@ -831,11 +837,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
-const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com'];
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com'];
 const ADMIN_EMAILS=['ches.0301@gmail.com'];
-const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire'};
+const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com'];
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy'};
+function isReadOnly(email){return READONLY_EMAILS.includes(email);}
 let currentUserEmail=null;
-function canEdit(c){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
+function canEdit(c){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
 let itemsRef=null;
 let unsubscribeItems=null;
 let feedbackRef=null;
@@ -914,6 +922,10 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       currentUserEmail=user.email;
       document.getElementById('user-email-display').textContent=displayName(user.email);
       showScreen('app');
+      const ro=isReadOnly(user.email);
+      const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=ro?'none':'';
+      const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=ro?'none':'';
+      const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=ro?'none':'';
       attachFirestoreListener();
       attachFeedbackListener();
     }
