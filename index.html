@@ -181,7 +181,9 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   .log-icon-btn{padding:6px 8px;font-size:18px;}
   input[type="checkbox"]{width:18px;height:18px;}
 }
-
+.view-tabs{display:flex;gap:4px;padding:0 1.5rem;margin-top:10px;border-bottom:0.5px solid var(--color-border-secondary);}
+.view-tab{border:none;background:none;padding:9px 14px;font-size:14px;font-weight:500;color:var(--color-text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.view-tab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary);}
 </style>
 </head>
 <body>
@@ -212,6 +214,11 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
+<div class="view-tabs">
+  <button class="view-tab active" id="tab-dev" onclick="switchView('dev')">開發項目</button>
+  <button class="view-tab" id="tab-feedback" onclick="switchView('feedback')">品牌回饋</button>
+</div>
+<div id="dev-view">
 <div class="filter-section">
   <div class="filter-group">
     <span class="filter-group-label">開發狀態</span>
@@ -241,6 +248,26 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 <div class="stats-row" id="stats-row"></div>
 <div class="customer-list" id="customer-list"></div>
+</div>
+
+<div id="feedback-view" style="display:none">
+<div class="filter-section">
+  <div class="filter-group">
+    <span class="filter-group-label">狀態</span>
+    <label class="filter-chip chip-all" id="fchip-all" onclick="toggleFeedbackAll()"><span class="dot"></span>全部</label>
+    <span id="feedback-status-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">品牌</span>
+    <select class="mini-select" id="feedback-brand-filter" onchange="syncFeedbackChips();renderFeedback()"><option value="">全部品牌</option></select>
+  </div>
+  <div class="filter-group">
+    <button class="btn-add" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
+  </div>
+</div>
+<div class="stats-row" id="feedback-stats-row"></div>
+<div class="customer-list" id="feedback-list-el"></div>
+</div>
 
 <div id="modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
@@ -280,6 +307,30 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
       <button class="btn-confirm" onclick="saveCustomer()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div id="feedback-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeFeedbackModal()">
+  <div class="modal">
+    <h3 id="feedback-modal-title">新增回饋</h3>
+    <div class="field"><label>品牌 *</label><input id="fb-brand" type="text" placeholder="品牌名稱"></div>
+    <div class="field"><label>來信日期</label><input id="fb-date" type="date"></div>
+    <div class="field"><label>Email 主旨</label><input id="fb-subject" type="text" placeholder="信件主旨"></div>
+    <div class="field"><label>問題</label><textarea id="fb-issue" rows="3" placeholder="品牌提出的問題內容"></textarea></div>
+    <div class="field"><label>回覆</label><textarea id="fb-reply" rows="3" placeholder="我方回覆內容"></textarea></div>
+    <div class="field"><label>狀態</label>
+      <select id="fb-status">
+        <option value="需追蹤">需追蹤</option>
+        <option value="已結案">已結案</option>
+      </select>
+    </div>
+    <div class="field"><label>關聯開發項目（選填）</label>
+      <select id="fb-linked-article"><option value="">— 不連結 —</option></select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeFeedbackModal()">取消</button>
+      <button class="btn-confirm" onclick="saveFeedback()">儲存</button>
     </div>
   </div>
 </div>
@@ -333,6 +384,9 @@ const DUE_RANGE_COLORS={7:{bg:'#FBEAF0',fg:'#72243E',border:'#993356'},14:{bg:'#
 const DUE_RANGE_LABELS={overdue:'已逾期'};
 function dueRangeLabel(n){return DUE_RANGE_LABELS[n]||(n+'天內');}
 const TODAY=new Date().toISOString().slice(0,10);
+const FEEDBACK_STATUSES=['需追蹤','已結案'];
+const FEEDBACK_STATUS_COLORS={'需追蹤':{bg:'#FBE9E7',fg:'#8C1D18',border:'#B3261E'},'已結案':{bg:'#DCEFE0',fg:'#1F6D3A',border:'#2E9450'}};
+function feedbackStatusColor(s){return FEEDBACK_STATUS_COLORS[s]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
 
 function statusColor(s){const i=STATUSES.indexOf(s);return STATUS_COLORS[i]||STATUS_COLORS[0];}
 function priorityColor(p){return PRIORITY_COLORS[p]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
@@ -360,6 +414,7 @@ function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.tex
 let customers=[];
 function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
+let feedbackList=[],activeFeedbackStatuses=new Set(),openFeedbackCardId=null,editingFeedbackId=null;
 let expandedLogIds=new Set();
 const LOG_PREVIEW_COUNT=3;
 function toggleLogsExpand(id){expandedLogIds.has(id)?expandedLogIds.delete(id):expandedLogIds.add(id);renderCardBody(id);}
@@ -644,10 +699,133 @@ function render(){
   list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
 
+/* ────────────────────────────────────────────────────────────
+   品牌回饋 (Brand Feedback) — 獨立於開發項目的第二個 tab
+   ──────────────────────────────────────────────────────────── */
+function switchView(view){
+  document.getElementById('dev-view').style.display=view==='dev'?'block':'none';
+  document.getElementById('feedback-view').style.display=view==='feedback'?'block':'none';
+  document.getElementById('tab-dev').classList.toggle('active',view==='dev');
+  document.getElementById('tab-feedback').classList.toggle('active',view==='feedback');
+}
+function canEditFeedback(f){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
+function buildFeedbackFilters(){
+  document.getElementById('feedback-status-chips').innerHTML=FEEDBACK_STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-fstatus-${i}" onclick="toggleFeedbackStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
+}
+function buildFeedbackBrandOptions(){
+  const sel=document.getElementById('feedback-brand-filter');if(!sel)return;
+  const current=sel.value;
+  const brands=[...new Set(feedbackList.map(f=>f.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  sel.innerHTML='<option value="">全部品牌</option>'+brands.map(b=>`<option value="${b}">${b}</option>`).join('');
+  sel.value=brands.includes(current)?current:'';
+}
+function syncFeedbackChips(){
+  const bf=document.getElementById('feedback-brand-filter');
+  const none=activeFeedbackStatuses.size===0&&(!bf||!bf.value);
+  document.getElementById('fchip-all').classList.toggle('checked',none);
+  FEEDBACK_STATUSES.forEach((s,i)=>{
+    const el=document.getElementById('chip-fstatus-'+i);if(!el)return;
+    const on=activeFeedbackStatuses.has(s);
+    el.classList.toggle('checked',on);
+    if(on){const c=feedbackStatusColor(s);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
+}
+function toggleFeedbackStatus(s){activeFeedbackStatuses.has(s)?activeFeedbackStatuses.delete(s):activeFeedbackStatuses.add(s);syncFeedbackChips();renderFeedback();}
+function toggleFeedbackAll(){activeFeedbackStatuses.clear();const bf=document.getElementById('feedback-brand-filter');if(bf)bf.value='';syncFeedbackChips();renderFeedback();}
+function toggleFeedbackCard(id){openFeedbackCardId=openFeedbackCardId===id?null:id;renderFeedback();}
+function renderFeedbackBody(f){
+  return `<div style="padding:0.85rem 1rem;border-top:0.5px solid var(--color-border-secondary)">
+    <div style="margin-bottom:8px;font-size:13px;line-height:1.5"><b>問題：</b>${(f.issue||'—').replace(/\n/g,'<br>')}</div>
+    <div style="margin-bottom:10px;font-size:13px;line-height:1.5"><b>回覆：</b>${(f.reply||'—').replace(/\n/g,'<br>')}</div>
+    ${canEditFeedback(f)?`<div style="display:flex;gap:8px"><button class="btn-cancel" onclick="openFeedbackModal('${f.id}')">編輯</button><button class="btn-cancel" onclick="deleteFeedback('${f.id}')">刪除</button></div>`:''}
+  </div>`;
+}
+function renderFeedback(){
+  buildFeedbackBrandOptions();
+  const brandVal=document.getElementById('feedback-brand-filter').value;
+  let list=feedbackList.filter(f=>{
+    if(activeFeedbackStatuses.size&&!activeFeedbackStatuses.has(f.status))return false;
+    if(brandVal&&f.brand!==brandVal)return false;
+    return true;
+  });
+  list.sort((a,b)=>{
+    const sa=a.status==='需追蹤'?0:1,sb=b.status==='需追蹤'?0:1;
+    if(sa!==sb)return sa-sb;
+    return (b.receivedDate||'').localeCompare(a.receivedDate||'');
+  });
+  const byStatus={};FEEDBACK_STATUSES.forEach(s=>byStatus[s]=0);list.forEach(f=>byStatus[f.status]=(byStatus[f.status]||0)+1);
+  document.getElementById('feedback-stats-row').innerHTML=`<div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">項目數</div></div>${FEEDBACK_STATUSES.filter(s=>byStatus[s]).map(s=>`<div class="stat-card"><div class="stat-num">${byStatus[s]}</div><div class="stat-label">${s}</div></div>`).join('')}`;
+  const el=document.getElementById('feedback-list-el');
+  if(!list.length){el.innerHTML='<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>沒有符合的回饋紀錄</div>';return;}
+  el.innerHTML=list.map(f=>{
+    const[abg,atxt]=avatarColors(f.brand),isOpen=openFeedbackCardId===f.id;
+    const sc=feedbackStatusColor(f.status);
+    const lockIcon=canEditFeedback(f)?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
+    return`<div class="customer-card" id="fcard-${f.id}"><div class="card-header" onclick="toggleFeedbackCard('${f.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(f.brand||'—').slice(0,2)}</div><div class="card-meta"><div class="card-name">${f.subject||'(無主旨)'}</div><div class="card-company">${f.brand}${f.linkedArticle?' · 關聯 '+f.linkedArticle:''}</div></div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${f.status}</span></div><span class="card-last">${f.receivedDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="fbody-${f.id}">${isOpen?renderFeedbackBody(f):''}</div></div>`;
+  }).join('');
+}
+function openFeedbackModal(id=null){
+  editingFeedbackId=id;
+  const linkSel=document.getElementById('fb-linked-article');
+  const articles=[...new Set(customers.map(c=>c.article).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  linkSel.innerHTML='<option value="">— 不連結 —</option>'+articles.map(a=>`<option value="${a}">${a}</option>`).join('');
+  if(id){
+    const f=feedbackList.find(x=>x.id===id);
+    document.getElementById('feedback-modal-title').textContent='編輯回饋';
+    document.getElementById('fb-brand').value=f.brand||'';
+    document.getElementById('fb-date').value=f.receivedDate||'';
+    document.getElementById('fb-subject').value=f.subject||'';
+    document.getElementById('fb-issue').value=f.issue||'';
+    document.getElementById('fb-reply').value=f.reply||'';
+    document.getElementById('fb-status').value=f.status||'需追蹤';
+    linkSel.value=f.linkedArticle||'';
+  }else{
+    document.getElementById('feedback-modal-title').textContent='新增回饋';
+    ['fb-brand','fb-date','fb-subject','fb-issue','fb-reply'].forEach(fid=>document.getElementById(fid).value='');
+    document.getElementById('fb-status').value='需追蹤';
+    linkSel.value='';
+  }
+  document.getElementById('feedback-modal-bg').style.display='flex';
+  setTimeout(()=>document.getElementById('fb-brand').focus(),50);
+}
+function closeFeedbackModal(){document.getElementById('feedback-modal-bg').style.display='none';editingFeedbackId=null;}
+function saveFeedback(){
+  const brand=document.getElementById('fb-brand').value.trim();if(!brand){document.getElementById('fb-brand').focus();return;}
+  if(editingFeedbackId){
+    const existing=feedbackList.find(x=>x.id===editingFeedbackId);
+    if(existing && !canEditFeedback(existing)){showToast('✗ 你沒有權限編輯這筆資料');closeFeedbackModal();return;}
+  }
+  const data={
+    brand,
+    receivedDate:document.getElementById('fb-date').value,
+    subject:document.getElementById('fb-subject').value.trim(),
+    issue:document.getElementById('fb-issue').value.trim(),
+    reply:document.getElementById('fb-reply').value.trim(),
+    status:document.getElementById('fb-status').value,
+    linkedArticle:document.getElementById('fb-linked-article').value,
+    updatedAt:TODAY
+  };
+  if(editingFeedbackId){
+    feedbackRef.doc(editingFeedbackId).update(data).catch(err=>showToast('✗ 更新失敗：'+err.message));
+  } else {
+    feedbackRef.add({createdBy:currentUserEmail,...data}).catch(err=>showToast('✗ 新增失敗：'+err.message));
+  }
+  closeFeedbackModal();
+}
+function deleteFeedback(id){
+  const f=feedbackList.find(x=>x.id===id);
+  if(f&&!canEditFeedback(f)){showToast('✗ 你沒有權限刪除這筆資料');return;}
+  if(openFeedbackCardId===id)openFeedbackCardId=null;
+  feedbackRef.doc(id).delete().catch(err=>showToast('✗ 刪除失敗：'+err.message));
+}
+
 buildFilters();
+buildFeedbackFilters();
 const DEFAULT_HIDDEN_STATUSES=['完成','暫緩','取消'];
 STATUSES.forEach(s=>{if(!DEFAULT_HIDDEN_STATUSES.includes(s))activeStatuses.add(s);});
 syncChips();
+syncFeedbackChips();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 /* ────────────────────────────────────────────────────────────
@@ -660,6 +838,8 @@ let currentUserEmail=null;
 function canEdit(c){return !!currentUserEmail&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
 let itemsRef=null;
 let unsubscribeItems=null;
+let feedbackRef=null;
+let unsubscribeFeedback=null;
 
 function showScreen(which){
   document.getElementById('login-screen').style.display=which==='login'?'flex':'none';
@@ -692,6 +872,24 @@ function detachFirestoreListener(){
   customers=[];
 }
 
+function attachFeedbackListener(){
+  if(feedbackRef)return;
+  document.getElementById('feedback-list-el').innerHTML='<div class="empty">載入中…</div>';
+  const db=firebase.firestore();
+  feedbackRef=db.collection('brand_feedback');
+  unsubscribeFeedback=feedbackRef.onSnapshot(snapshot=>{
+    feedbackList=snapshot.docs.map(doc=>({id:doc.id,...doc.data()}));
+    renderFeedback();
+  }, err=>{
+    showToast('✗ 讀取回饋資料庫失敗：'+err.message);
+  });
+}
+function detachFeedbackListener(){
+  if(unsubscribeFeedback){unsubscribeFeedback();unsubscribeFeedback=null;}
+  feedbackRef=null;
+  feedbackList=[];
+}
+
 /* ────────────────────────────────────────────────────────────
    Firebase 初始化與即時同步：所有分享這個網址的人看到的資料都是
    同一份（存在 Firestore），任何人新增/編輯/刪除，其他人畫面會自動更新
@@ -705,16 +903,19 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       currentUserEmail=null;
       showScreen('login');
       detachFirestoreListener();
+      detachFeedbackListener();
     } else if(!ALLOWED_EMAILS.includes(user.email)){
       currentUserEmail=null;
       document.getElementById('unauthorized-email').textContent=user.email;
       showScreen('unauthorized');
       detachFirestoreListener();
+      detachFeedbackListener();
     } else {
       currentUserEmail=user.email;
       document.getElementById('user-email-display').textContent=displayName(user.email);
       showScreen('app');
       attachFirestoreListener();
+      attachFeedbackListener();
     }
   });
 }
