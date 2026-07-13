@@ -448,8 +448,9 @@ function displayName(email){return USER_NAMES[email]||email||'';}
 function buildCreatorOptions(){
   const sel=document.getElementById('creator-filter');if(!sel)return;
   const current=sel.value;
-  sel.innerHTML='<option value="">全部建立者</option>'+ALLOWED_EMAILS.map(e=>`<option value="${e}">${displayName(e)}</option>`).join('');
-  sel.value=ALLOWED_EMAILS.includes(current)?current:'';
+  const creatorEmails=ALLOWED_EMAILS.filter(e=>!READONLY_EMAILS.includes(e));
+  sel.innerHTML='<option value="">全部建立者</option>'+creatorEmails.map(e=>`<option value="${e}">${displayName(e)}</option>`).join('');
+  sel.value=creatorEmails.includes(current)?current:'';
 }
 
 function syncChips(){
