@@ -262,6 +262,14 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <select class="mini-select" id="feedback-brand-filter" onchange="syncFeedbackChips();renderFeedback()"><option value="">全部品牌</option></select>
   </div>
   <div class="filter-group">
+    <span class="filter-group-label">建立者</span>
+    <select class="mini-select" id="feedback-creator-filter" onchange="syncFeedbackChips();renderFeedback()"><option value="">全部建立者</option></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">日期</span>
+    <span id="feedback-daterange-chips"></span>
+  </div>
+  <div class="filter-group">
     <button class="btn-add" id="btn-add-feedback" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
   </div>
 </div>
@@ -272,7 +280,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div id="modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <h3 id="modal-title">新增項目</h3>
-    <div class="field"><label>Brand *</label><input id="f-brand" type="text" placeholder="Brand 品牌名稱"></div>
+    <div class="field"><label>Brand *</label><input id="f-brand" type="text" list="brand-datalist" placeholder="Brand 品牌名稱（可從清單選或直接輸入新品牌）"><datalist id="brand-datalist"></datalist></div>
     <div class="field"><label>Development Type</label>
       <select id="f-devtype">
         <option value="">— 未設定 —</option>
@@ -290,6 +298,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="field"><label>CW</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="可裁幅寬（純數字）"></div>
     <div class="field"><label>GSM</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="克重（純數字）"></div>
     <div class="field"><label>Knitter</label><input id="f-knitter" type="text" placeholder="織廠"></div>
+    <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠名稱"></div>
     <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
     <div class="field"><label>Yarn</label><textarea id="f-yarn" rows="2" placeholder="紗支"></textarea></div>
     <div class="field"><label>Due Date</label><input id="f-duedate" type="date"></div>
@@ -385,8 +394,12 @@ const DUE_RANGE_LABELS={overdue:'已逾期'};
 function dueRangeLabel(n){return DUE_RANGE_LABELS[n]||(n+'天內');}
 const TODAY=new Date().toISOString().slice(0,10);
 const FEEDBACK_STATUSES=['需追蹤','已結案'];
-const FEEDBACK_STATUS_COLORS={'需追蹤':{bg:'#FBE9E7',fg:'#8C1D18',border:'#B3261E'},'已結案':{bg:'#DCEFE0',fg:'#1F6D3A',border:'#2E9450'}};
+const FEEDBACK_STATUS_COLORS={'需追蹤':{bg:'#FBE9E7',fg:'#8C1D18',border:'#B3261E'},'已結案':{bg:'#DCEFE0',fg:'#1F6D3A',border:'#2E9450'},'today':{bg:'#E6F1FB',fg:'#0C447C',border:'#185FA5'}};
 function feedbackStatusColor(s){return FEEDBACK_STATUS_COLORS[s]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
+const FEEDBACK_DATE_RANGES=[7,30];
+const FEEDBACK_DATE_RANGE_LABELS={7:'7天內',30:'30天內'};
+function feedbackDateRangeLabel(n){return FEEDBACK_DATE_RANGE_LABELS[n]||(n+'天內');}
+function daysAgo(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((t-d)/86400000);}
 
 function statusColor(s){const i=STATUSES.indexOf(s);return STATUS_COLORS[i]||STATUS_COLORS[0];}
 function priorityColor(p){return PRIORITY_COLORS[p]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
@@ -414,7 +427,7 @@ function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.tex
 let customers=[];
 function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
-let feedbackList=[],activeFeedbackStatuses=new Set(),openFeedbackCardId=null,editingFeedbackId=null;
+let feedbackList=[],activeFeedbackStatuses=new Set(),activeFeedbackDateRanges=new Set(),openFeedbackCardId=null,editingFeedbackId=null;
 let expandedLogIds=new Set();
 const LOG_PREVIEW_COUNT=3;
 function toggleLogsExpand(id){expandedLogIds.has(id)?expandedLogIds.delete(id):expandedLogIds.add(id);renderCardBody(id);}
@@ -441,6 +454,8 @@ function buildBrandOptions(){
   const brands=[...new Set(customers.map(c=>c.brand).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
   sel.innerHTML='<option value="">全部品牌</option>'+brands.map(b=>`<option value="${b}">${b}</option>`).join('');
   sel.value=brands.includes(current)?current:'';
+  const dl=document.getElementById('brand-datalist');
+  if(dl)dl.innerHTML=brands.map(b=>`<option value="${b}">`).join('');
 }
 
 function displayName(email){return USER_NAMES[email]||email||'';}
@@ -490,8 +505,8 @@ function syncChips(){
 
 function openModal(id=null){
   editingCustomerId=id;
-  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-gauge','f-yarn','f-duedate'];
-  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','gauge','yarn','dueDate'];
+  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn','f-duedate'];
+  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn','dueDate'];
   if(id){
     const c=customers.find(x=>x.id===id);
     document.getElementById('modal-title').textContent='編輯項目';
@@ -525,6 +540,7 @@ function saveCustomer(){
     cw:document.getElementById('f-cw').value.trim(),
     gsm:document.getElementById('f-gsm').value.trim(),
     knitter:document.getElementById('f-knitter').value.trim(),
+    dyehouse:document.getElementById('f-dyehouse').value.trim(),
     gauge:document.getElementById('f-gauge').value.trim(),
     yarn:document.getElementById('f-yarn').value.trim(),
     dueDate:document.getElementById('f-duedate').value,
@@ -589,7 +605,7 @@ function renderCardBody(id){
   el.className='card-body open';
   const editable=canEdit(c);
   const canLog=!isReadOnly(currentUserEmail);
-  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
+  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['染廠',c.dyehouse],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
   const longFields=[['Request',c.request],['Yarn',c.yarn]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
   const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
@@ -674,7 +690,7 @@ function render(){
       if(!dueMatch)return false;
     }
     if(q){
-      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.yarn].join(' ').toLowerCase();
+      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.dyehouse,c.yarn].join(' ').toLowerCase();
       if(!hay.includes(q))return false;
     }
     return true;
@@ -716,7 +732,10 @@ function switchView(view){
 }
 function canEditFeedback(f){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
 function buildFeedbackFilters(){
-  document.getElementById('feedback-status-chips').innerHTML=FEEDBACK_STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-fstatus-${i}" onclick="toggleFeedbackStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
+  document.getElementById('feedback-status-chips').innerHTML=
+    `<label class="filter-chip" id="chip-fstatus-today" onclick="toggleFeedbackStatus('today')"><span class="dot"></span>今日</label>`+
+    FEEDBACK_STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-fstatus-${i}" onclick="toggleFeedbackStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
+  document.getElementById('feedback-daterange-chips').innerHTML=FEEDBACK_DATE_RANGES.map(n=>`<label class="filter-chip" id="chip-fdate-${n}" onclick="toggleFeedbackDateRange(${n})"><span class="dot"></span>${feedbackDateRangeLabel(n)}</label>`).join('');
 }
 function buildFeedbackBrandOptions(){
   const sel=document.getElementById('feedback-brand-filter');if(!sel)return;
@@ -725,10 +744,25 @@ function buildFeedbackBrandOptions(){
   sel.innerHTML='<option value="">全部品牌</option>'+brands.map(b=>`<option value="${b}">${b}</option>`).join('');
   sel.value=brands.includes(current)?current:'';
 }
+function buildFeedbackCreatorOptions(){
+  const sel=document.getElementById('feedback-creator-filter');if(!sel)return;
+  const current=sel.value;
+  const creatorEmails=ALLOWED_EMAILS.filter(e=>!READONLY_EMAILS.includes(e));
+  sel.innerHTML='<option value="">全部建立者</option>'+creatorEmails.map(e=>`<option value="${e}">${displayName(e)}</option>`).join('');
+  sel.value=creatorEmails.includes(current)?current:'';
+}
 function syncFeedbackChips(){
   const bf=document.getElementById('feedback-brand-filter');
-  const none=activeFeedbackStatuses.size===0&&(!bf||!bf.value);
+  const cf=document.getElementById('feedback-creator-filter');
+  const none=activeFeedbackStatuses.size===0&&activeFeedbackDateRanges.size===0&&(!bf||!bf.value)&&(!cf||!cf.value);
   document.getElementById('fchip-all').classList.toggle('checked',none);
+  const todayEl=document.getElementById('chip-fstatus-today');
+  if(todayEl){
+    const on=activeFeedbackStatuses.has('today');
+    todayEl.classList.toggle('checked',on);
+    if(on){const c=feedbackStatusColor('today');todayEl.style.background=c.bg;todayEl.style.color=c.fg;todayEl.style.borderColor=c.border;}
+    else{todayEl.style.background='';todayEl.style.color='';todayEl.style.borderColor='';}
+  }
   FEEDBACK_STATUSES.forEach((s,i)=>{
     const el=document.getElementById('chip-fstatus-'+i);if(!el)return;
     const on=activeFeedbackStatuses.has(s);
@@ -736,23 +770,52 @@ function syncFeedbackChips(){
     if(on){const c=feedbackStatusColor(s);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
     else{el.style.background='';el.style.color='';el.style.borderColor='';}
   });
+  FEEDBACK_DATE_RANGES.forEach(n=>{
+    const el=document.getElementById('chip-fdate-'+n);if(!el)return;
+    const on=activeFeedbackDateRanges.has(n);
+    el.classList.toggle('checked',on);
+    if(on){const c=feedbackStatusColor('today');el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
+    else{el.style.background='';el.style.color='';el.style.borderColor='';}
+  });
 }
 function toggleFeedbackStatus(s){activeFeedbackStatuses.has(s)?activeFeedbackStatuses.delete(s):activeFeedbackStatuses.add(s);syncFeedbackChips();renderFeedback();}
-function toggleFeedbackAll(){activeFeedbackStatuses.clear();const bf=document.getElementById('feedback-brand-filter');if(bf)bf.value='';syncFeedbackChips();renderFeedback();}
+function toggleFeedbackDateRange(n){activeFeedbackDateRanges.has(n)?activeFeedbackDateRanges.delete(n):activeFeedbackDateRanges.add(n);syncFeedbackChips();renderFeedback();}
+function toggleFeedbackAll(){activeFeedbackStatuses.clear();activeFeedbackDateRanges.clear();const bf=document.getElementById('feedback-brand-filter');if(bf)bf.value='';const cf=document.getElementById('feedback-creator-filter');if(cf)cf.value='';syncFeedbackChips();renderFeedback();}
+function setFeedbackStatus(id,s){
+  const f=feedbackList.find(x=>x.id===id);
+  if(isReadOnly(currentUserEmail)||(f&&!canEditFeedback(f))){showToast('✗ 你沒有權限修改這筆資料');return;}
+  feedbackRef.doc(id).update({status:s,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
+}
 function toggleFeedbackCard(id){openFeedbackCardId=openFeedbackCardId===id?null:id;renderFeedback();}
 function renderFeedbackBody(f){
+  const editable=canEditFeedback(f);
+  const statusHTML=FEEDBACK_STATUSES.map(s=>{const sel=f.status===s;const sc=feedbackStatusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setFeedbackStatus('${f.id}','${s}')">${s}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${s}</span>`;}).join('');
   return `<div style="padding:0.85rem 1rem;border-top:0.5px solid var(--color-border-secondary)">
-    <div style="margin-bottom:8px;font-size:13px;line-height:1.5"><b>問題：</b>${(f.issue||'—').replace(/\n/g,'<br>')}</div>
+    <div class="section-label" style="margin-top:0">狀態</div>
+    <div class="status-grid">${statusHTML}</div>
+    <div style="margin:10px 0 8px;font-size:13px;line-height:1.5"><b>問題：</b>${(f.issue||'—').replace(/\n/g,'<br>')}</div>
     <div style="margin-bottom:10px;font-size:13px;line-height:1.5"><b>回覆：</b>${(f.reply||'—').replace(/\n/g,'<br>')}</div>
-    ${canEditFeedback(f)?`<div style="display:flex;gap:8px"><button class="btn-cancel" onclick="openFeedbackModal('${f.id}')">編輯</button><button class="btn-cancel" onclick="deleteFeedback('${f.id}')">刪除</button></div>`:''}
+    ${editable?`<div style="display:flex;gap:8px"><button class="btn-cancel" onclick="openFeedbackModal('${f.id}')">編輯</button><button class="btn-cancel" onclick="deleteFeedback('${f.id}')">刪除</button></div>`:''}
   </div>`;
 }
 function renderFeedback(){
   buildFeedbackBrandOptions();
+  buildFeedbackCreatorOptions();
   const brandVal=document.getElementById('feedback-brand-filter').value;
+  const creatorVal=document.getElementById('feedback-creator-filter').value;
   let list=feedbackList.filter(f=>{
-    if(activeFeedbackStatuses.size&&!activeFeedbackStatuses.has(f.status))return false;
+    if(activeFeedbackStatuses.size){
+      const wantsToday=activeFeedbackStatuses.has('today');
+      let match=activeFeedbackStatuses.has(f.status);
+      if(wantsToday&&f.receivedDate===TODAY)match=true;
+      if(!match)return false;
+    }
+    if(activeFeedbackDateRanges.size){
+      const da=daysAgo(f.receivedDate);
+      if(da===null||da<0||da>Math.max(...activeFeedbackDateRanges))return false;
+    }
     if(brandVal&&f.brand!==brandVal)return false;
+    if(creatorVal&&f.createdBy!==creatorVal)return false;
     return true;
   });
   list.sort((a,b)=>{
@@ -831,6 +894,8 @@ buildFilters();
 buildFeedbackFilters();
 const DEFAULT_HIDDEN_STATUSES=['完成','暫緩','取消'];
 STATUSES.forEach(s=>{if(!DEFAULT_HIDDEN_STATUSES.includes(s))activeStatuses.add(s);});
+activeFeedbackStatuses.add('today');
+activeFeedbackStatuses.add('需追蹤');
 syncChips();
 syncFeedbackChips();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
