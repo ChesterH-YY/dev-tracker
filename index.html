@@ -211,6 +211,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
   <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
+  <button class="btn-add" id="btn-add-feedback" style="display:none" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
   <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
@@ -268,9 +269,6 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <div class="filter-group">
     <span class="filter-group-label">日期</span>
     <span id="feedback-daterange-chips"></span>
-  </div>
-  <div class="filter-group">
-    <button class="btn-add" id="btn-add-feedback" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
   </div>
 </div>
 <div class="stats-row" id="feedback-stats-row"></div>
