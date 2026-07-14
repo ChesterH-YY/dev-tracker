@@ -207,7 +207,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div class="top-bar">
   <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
   <input class="search-bar" type="text" placeholder="搜尋 Brand / Article# / Developer..." id="search" oninput="render()">
-  <button class="btn-io btn-io-export" onclick="exportData()"><i class="ti ti-download"></i> 匯出</button>
+  <button class="btn-io btn-io-export" id="btn-export" onclick="exportData()"><i class="ti ti-download"></i> 匯出</button>
   <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
   <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
@@ -724,11 +724,21 @@ function render(){
 /* ────────────────────────────────────────────────────────────
    品牌回饋 (Brand Feedback) — 獨立於開發項目的第二個 tab
    ──────────────────────────────────────────────────────────── */
+let currentView='dev';
+function updateToolbarVisibility(){
+  const ro=isReadOnly(currentUserEmail);
+  const exportBtn=document.getElementById('btn-export');if(exportBtn)exportBtn.style.display=currentView==='dev'?'':'none';
+  const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
+  const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
+  const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
+}
 function switchView(view){
+  currentView=view;
   document.getElementById('dev-view').style.display=view==='dev'?'block':'none';
   document.getElementById('feedback-view').style.display=view==='feedback'?'block':'none';
   document.getElementById('tab-dev').classList.toggle('active',view==='dev');
   document.getElementById('tab-feedback').classList.toggle('active',view==='feedback');
+  updateToolbarVisibility();
 }
 function canEditFeedback(f){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
 function buildFeedbackFilters(){
@@ -988,10 +998,7 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       currentUserEmail=user.email;
       document.getElementById('user-email-display').textContent=displayName(user.email);
       showScreen('app');
-      const ro=isReadOnly(user.email);
-      const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=ro?'none':'';
-      const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=ro?'none':'';
-      const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=ro?'none':'';
+      updateToolbarVisibility();
       attachFirestoreListener();
       attachFeedbackListener();
     }
