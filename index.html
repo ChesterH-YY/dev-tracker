@@ -52,6 +52,13 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .filter-chip.checked .dot{background:currentColor;}
 .chip-all.checked{background:#EEEDFE;color:#3C3489;border-color:#3C3489;}
 #status-chips,#priority-chips,#devtype-chips,#duerange-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+#status-filter-group{flex-wrap:nowrap;}
+#status-filter-group .filter-group-label,#status-filter-group #chip-all{flex-shrink:0;}
+#status-chips{flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
+#status-chips .filter-chip{flex-shrink:0;}
+#status-chips::-webkit-scrollbar{height:4px;}
+#status-chips::-webkit-scrollbar-thumb{background:var(--color-border-tertiary);border-radius:2px;}
+#status-chips::-webkit-scrollbar-track{background:transparent;}
 .mini-select{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);}
 .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1.25rem;}
 .stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center;border:0.5px solid var(--color-border-tertiary);}
@@ -221,7 +228,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 <div id="dev-view">
 <div class="filter-section">
-  <div class="filter-group">
+  <div class="filter-group" id="status-filter-group">
     <span class="filter-group-label">開發狀態</span>
     <label class="filter-chip chip-all" id="chip-all" onclick="toggleAll()"><span class="dot"></span>全部</label>
     <span id="status-chips"></span>
