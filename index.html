@@ -282,7 +282,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div class="customer-list" id="feedback-list-el"></div>
 </div>
 
-<div id="modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeModal()">
+<div id="modal-bg" class="modal-bg" style="display:none">
   <div class="modal">
     <h3 id="modal-title">新增項目</h3>
     <div class="field"><label>Brand *</label><input id="f-brand" type="text" list="brand-datalist" placeholder="Brand 品牌名稱（可從清單選或直接輸入新品牌）"><datalist id="brand-datalist"></datalist></div>
@@ -325,7 +325,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   </div>
 </div>
 
-<div id="feedback-modal-bg" class="modal-bg" style="display:none" onclick="if(event.target===this)closeFeedbackModal()">
+<div id="feedback-modal-bg" class="modal-bg" style="display:none">
   <div class="modal">
     <h3 id="feedback-modal-title">新增回饋</h3>
     <div class="field"><label>品牌 *</label><input id="fb-brand" type="text" placeholder="品牌名稱"></div>
@@ -916,6 +916,16 @@ activeFeedbackStatuses.add('需追蹤');
 syncChips();
 syncFeedbackChips();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+function setupBackdropClose(bgId,closeFn){
+  const bg=document.getElementById(bgId);
+  if(!bg)return;
+  let downOnBg=false;
+  bg.addEventListener('mousedown',e=>{downOnBg=(e.target===bg);});
+  bg.addEventListener('click',e=>{if(e.target===bg&&downOnBg)closeFn();downOnBg=false;});
+}
+setupBackdropClose('modal-bg',closeModal);
+setupBackdropClose('feedback-modal-bg',closeFeedbackModal);
 
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
