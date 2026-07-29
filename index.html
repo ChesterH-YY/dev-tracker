@@ -295,7 +295,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <h3>MOQ 試算</h3>
     <div class="field"><label>紗支 MOQ（公斤）</label><input id="calc-moq-kg" type="number" step="any" inputmode="decimal" placeholder="例：300" oninput="runMoqCalc()"></div>
     <div class="field"><label>紗線佔比（%）</label><input id="calc-moq-yarnpct" type="number" step="any" inputmode="decimal" placeholder="例：60（混紡中此紗線的比例）" oninput="runMoqCalc()"></div>
-    <div class="field"><label>幅寬 CW（吋）</label><input id="calc-moq-cw" type="number" step="any" inputmode="decimal" placeholder="例：60" oninput="runMoqCalc()"></div>
+    <div class="field"><label>幅寬 CW／可裁幅寬（吋）</label><input id="calc-moq-cw" type="number" step="any" inputmode="decimal" placeholder="例：60（換算時會自動加 2 吋做為全幅）" oninput="runMoqCalc()"></div>
     <div class="field"><label>克重 GSM（g/m²）</label><input id="calc-moq-gsm" type="number" step="any" inputmode="decimal" placeholder="例：220" oninput="runMoqCalc()"></div>
     <div class="field"><label>織造損耗（%，選填）</label><input id="calc-moq-knitloss" type="number" step="any" inputmode="decimal" placeholder="例：5" oninput="runMoqCalc()"></div>
     <div class="field"><label>染整損耗（%，選填）</label><input id="calc-moq-dyeloss" type="number" step="any" inputmode="decimal" placeholder="例：8" oninput="runMoqCalc()"></div>
@@ -844,10 +844,11 @@ function runMoqCalc(){
   if(!yarnKg||!yarnPct||!cwInch||!gsm){el.textContent='請輸入以上數值進行試算';return;}
   const greigeKg=yarnKg/(yarnPct/100);
   const finishedKg=greigeKg*(1-knitLoss/100)*(1-dyeLoss/100);
-  const cwM=cwInch*0.0254;
+  const cwFullInch=cwInch+2; // CW 為可裁幅寬，織造全幅需預抓多 2 吋（含布邊/預留）
+  const cwM=cwFullInch*0.0254;
   const meters=finishedKg*1000/(cwM*gsm);
   const yards=meters/0.9144;
-  el.innerHTML=`MOQ（成品，已計入紗線佔比${knitLoss||dyeLoss?'與損耗':''}）：<b>${finishedKg.toFixed(1)}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
+  el.innerHTML=`MOQ（成品，已計入紗線佔比${knitLoss||dyeLoss?'與損耗':''}，以全幅 ${cwFullInch}吋 換算）：<b>${finishedKg.toFixed(1)}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
 }
 function runCapacityCalc(){
   const machines=parseFloat(document.getElementById('calc-cap-machines').value);
