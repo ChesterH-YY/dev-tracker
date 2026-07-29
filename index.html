@@ -133,6 +133,13 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .field label{display:block;font-size:12px;color:var(--color-text-secondary);margin-bottom:4px;}
 .field input,.field select,.field textarea{width:100%;padding:8px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-secondary);color:var(--color-text-primary);font-family:var(--font-sans);}
 .field textarea{resize:vertical;min-height:52px;line-height:1.5;}
+.calc-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1.25rem;max-width:480px;}
+.calc-card h3{margin:0 0 1rem;font-size:15px;}
+.calc-result{margin-top:10px;padding:10px 12px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);font-size:13px;line-height:1.7;color:var(--color-text-primary);}
+.calc-process-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);}
+.calc-process-row:last-child{border-bottom:none;}
+.calc-process-row span{flex:1;}
+.calc-process-row input[type=number]{width:56px;padding:4px 6px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary);}
 .modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
@@ -225,6 +232,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div class="view-tabs">
   <button class="view-tab active" id="tab-dev" onclick="switchView('dev')">開發項目</button>
   <button class="view-tab" id="tab-feedback" onclick="switchView('feedback')">品牌回饋</button>
+  <button class="view-tab" id="tab-calc" onclick="switchView('calc')">試算工具</button>
 </div>
 <div id="dev-view">
 <div class="filter-section">
@@ -280,6 +288,41 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 <div class="stats-row" id="feedback-stats-row"></div>
 <div class="customer-list" id="feedback-list-el"></div>
+</div>
+
+<div id="calc-view" style="display:none">
+  <div class="calc-card">
+    <h3>MOQ 試算</h3>
+    <div class="field"><label>紗支 MOQ（公斤）</label><input id="calc-moq-kg" type="number" step="any" inputmode="decimal" placeholder="例：300" oninput="runMoqCalc()"></div>
+    <div class="field"><label>幅寬 CW（公分）</label><input id="calc-moq-cw" type="number" step="any" inputmode="decimal" placeholder="例：150" oninput="runMoqCalc()"></div>
+    <div class="field"><label>克重 GSM（g/m²）</label><input id="calc-moq-gsm" type="number" step="any" inputmode="decimal" placeholder="例：220" oninput="runMoqCalc()"></div>
+    <div class="calc-result" id="calc-moq-result">請輸入以上數值進行試算</div>
+  </div>
+
+  <div class="calc-card">
+    <h3>產能試算</h3>
+    <div class="field"><label>機台數</label><input id="calc-cap-machines" type="number" step="any" inputmode="decimal" placeholder="例：5" oninput="runCapacityCalc()"></div>
+    <div class="field"><label>單機日產出（公斤/天）</label><input id="calc-cap-output" type="number" step="any" inputmode="decimal" placeholder="例：80" oninput="runCapacityCalc()"></div>
+    <div class="field"><label>稼動率（%）</label><input id="calc-cap-eff" type="number" step="any" inputmode="decimal" placeholder="例：85" oninput="runCapacityCalc()"></div>
+    <div class="field"><label>訂購量（公斤）</label><input id="calc-cap-orderqty" type="number" step="any" inputmode="decimal" placeholder="例：1000" oninput="runCapacityCalc()"></div>
+    <div class="calc-result" id="calc-cap-result">請輸入以上數值進行試算</div>
+  </div>
+
+  <div class="calc-card">
+    <h3>交期試算</h3>
+    <div class="field"><label>紗線類型</label>
+      <select id="calc-lt-yarntype" onchange="onYarnTypeChange()"></select>
+    </div>
+    <div class="field"><label>紗線前置天數（可手動調整）</label><input id="calc-lt-yarndays" type="number" step="any" inputmode="decimal" oninput="runLeadTimeCalc()"></div>
+    <div class="field"><label>織布天數（可手動調整，預設帶入產能試算結果）</label><input id="calc-lt-knitdays" type="number" step="any" inputmode="decimal" oninput="runLeadTimeCalc()"></div>
+    <div class="field"><label>染整天數</label><input id="calc-lt-dyedays" type="number" step="any" inputmode="decimal" placeholder="例：7" oninput="runLeadTimeCalc()"></div>
+    <div class="field"><label>特殊製程（可複選，天數加總）</label>
+      <div id="calc-lt-process-list"></div>
+    </div>
+    <div class="field"><label>緩衝天數</label><input id="calc-lt-buffer" type="number" step="any" inputmode="decimal" placeholder="例：3" oninput="runLeadTimeCalc()"></div>
+    <div class="field"><label>下單日期（選填）</label><input id="calc-lt-orderdate" type="date" onchange="runLeadTimeCalc()"></div>
+    <div class="calc-result" id="calc-lt-result">請輸入以上數值進行試算</div>
+  </div>
 </div>
 
 <div id="modal-bg" class="modal-bg" style="display:none">
@@ -743,9 +786,103 @@ function switchView(view){
   currentView=view;
   document.getElementById('dev-view').style.display=view==='dev'?'block':'none';
   document.getElementById('feedback-view').style.display=view==='feedback'?'block':'none';
+  document.getElementById('calc-view').style.display=view==='calc'?'block':'none';
   document.getElementById('tab-dev').classList.toggle('active',view==='dev');
   document.getElementById('tab-feedback').classList.toggle('active',view==='feedback');
+  document.getElementById('tab-calc').classList.toggle('active',view==='calc');
   updateToolbarVisibility();
+}
+
+/* ────────────────────────────────────────────────────────────
+   試算工具 (MOQ / 交期 / 產能) — 純前端試算，不寫入 Firestore
+   ──────────────────────────────────────────────────────────── */
+const YARN_LEADTIME_TYPES=[
+  {key:'常規胚紗',days:5},
+  {key:'客制胚紗',days:30},
+  {key:'常規紗色紗',days:45},
+  {key:'客製紗色紗',days:75}
+];
+const PROCESS_LEADTIME_OPTIONS=[
+  {key:'紙印花',days:15},
+  {key:'濕印+定型',days:25},
+  {key:'數位直噴印花+定型',days:50},
+  {key:'壓光',days:15},
+  {key:'燙金',days:15},
+  {key:'貼合',days:15}
+];
+function buildCalcTab(){
+  const ytSel=document.getElementById('calc-lt-yarntype');
+  if(ytSel && !ytSel.options.length){
+    ytSel.innerHTML=YARN_LEADTIME_TYPES.map(y=>`<option value="${y.key}">${y.key}（預設 ${y.days} 天）</option>`).join('');
+  }
+  const ydInput=document.getElementById('calc-lt-yarndays');
+  if(ydInput && ydInput.value===''){ydInput.value=YARN_LEADTIME_TYPES[0].days;}
+  const procList=document.getElementById('calc-lt-process-list');
+  if(procList && !procList.children.length){
+    procList.innerHTML=PROCESS_LEADTIME_OPTIONS.map((p,i)=>`<label class="calc-process-row"><input type="checkbox" id="calc-process-${i}-check" onchange="runLeadTimeCalc()"><span>${p.key}</span><input type="number" step="any" inputmode="decimal" id="calc-process-${i}-days" value="${p.days}" oninput="runLeadTimeCalc()">天</label>`).join('');
+  }
+}
+function onYarnTypeChange(){
+  const sel=document.getElementById('calc-lt-yarntype');
+  const match=YARN_LEADTIME_TYPES.find(y=>y.key===sel.value);
+  if(match)document.getElementById('calc-lt-yarndays').value=match.days;
+  runLeadTimeCalc();
+}
+function runMoqCalc(){
+  const kg=parseFloat(document.getElementById('calc-moq-kg').value);
+  const cwCm=parseFloat(document.getElementById('calc-moq-cw').value);
+  const gsm=parseFloat(document.getElementById('calc-moq-gsm').value);
+  const el=document.getElementById('calc-moq-result');
+  if(!kg||!cwCm||!gsm){el.textContent='請輸入以上數值進行試算';return;}
+  const cwM=cwCm/100;
+  const meters=kg*1000/(cwM*gsm);
+  const yards=meters/0.9144;
+  el.innerHTML=`MOQ：<b>${kg}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
+}
+function runCapacityCalc(){
+  const machines=parseFloat(document.getElementById('calc-cap-machines').value);
+  const perMachine=parseFloat(document.getElementById('calc-cap-output').value);
+  const eff=parseFloat(document.getElementById('calc-cap-eff').value);
+  const orderQty=parseFloat(document.getElementById('calc-cap-orderqty').value);
+  const el=document.getElementById('calc-cap-result');
+  if(!machines||!perMachine||!eff){el.textContent='請輸入以上數值進行試算';return;}
+  const dailyCapacity=machines*perMachine*(eff/100);
+  let html=`每日產能：<b>${dailyCapacity.toFixed(1)}</b> 公斤/天`;
+  if(orderQty){
+    const days=Math.ceil(orderQty/dailyCapacity);
+    html+=`　|　訂購量 ${orderQty} 公斤所需天數：<b>${days}</b> 天`;
+    const knitDaysInput=document.getElementById('calc-lt-knitdays');
+    if(knitDaysInput){knitDaysInput.value=days;}
+  }
+  el.innerHTML=html;
+  runLeadTimeCalc();
+}
+function runLeadTimeCalc(){
+  const el=document.getElementById('calc-lt-result');
+  if(!el)return;
+  const yarnDays=parseFloat(document.getElementById('calc-lt-yarndays').value)||0;
+  const knitDays=parseFloat(document.getElementById('calc-lt-knitdays').value)||0;
+  const dyeDays=parseFloat(document.getElementById('calc-lt-dyedays').value)||0;
+  const bufferDays=parseFloat(document.getElementById('calc-lt-buffer').value)||0;
+  let processDays=0;
+  const processDetails=[];
+  PROCESS_LEADTIME_OPTIONS.forEach((p,i)=>{
+    const chk=document.getElementById(`calc-process-${i}-check`);
+    if(chk&&chk.checked){
+      const days=parseFloat(document.getElementById(`calc-process-${i}-days`).value)||0;
+      processDays+=days;
+      processDetails.push(`${p.key} ${days}天`);
+    }
+  });
+  const total=yarnDays+knitDays+dyeDays+processDays+bufferDays;
+  let html=`總交期：<b>${total}</b> 天　（紗線 ${yarnDays} + 織布 ${knitDays} + 染整 ${dyeDays} + 特殊製程 ${processDays}${processDetails.length?`｜${processDetails.join('、')}`:''} + 緩衝 ${bufferDays}）`;
+  const orderDateVal=document.getElementById('calc-lt-orderdate').value;
+  if(orderDateVal){
+    const d=new Date(orderDateVal+'T00:00:00');
+    d.setDate(d.getDate()+total);
+    html+=`<br>預估完成日期：<b>${d.toISOString().slice(0,10)}</b>`;
+  }
+  el.innerHTML=html;
 }
 function canEditFeedback(f){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
 function buildFeedbackFilters(){
@@ -915,6 +1052,7 @@ activeFeedbackStatuses.add('today');
 activeFeedbackStatuses.add('需追蹤');
 syncChips();
 syncFeedbackChips();
+buildCalcTab();
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 
 function setupBackdropClose(bgId,closeFn){
