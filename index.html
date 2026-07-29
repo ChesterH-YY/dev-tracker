@@ -294,8 +294,11 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <div class="calc-card">
     <h3>MOQ 試算</h3>
     <div class="field"><label>紗支 MOQ（公斤）</label><input id="calc-moq-kg" type="number" step="any" inputmode="decimal" placeholder="例：300" oninput="runMoqCalc()"></div>
-    <div class="field"><label>幅寬 CW（公分）</label><input id="calc-moq-cw" type="number" step="any" inputmode="decimal" placeholder="例：150" oninput="runMoqCalc()"></div>
+    <div class="field"><label>紗線佔比（%）</label><input id="calc-moq-yarnpct" type="number" step="any" inputmode="decimal" placeholder="例：60（混紡中此紗線的比例）" oninput="runMoqCalc()"></div>
+    <div class="field"><label>幅寬 CW（吋）</label><input id="calc-moq-cw" type="number" step="any" inputmode="decimal" placeholder="例：60" oninput="runMoqCalc()"></div>
     <div class="field"><label>克重 GSM（g/m²）</label><input id="calc-moq-gsm" type="number" step="any" inputmode="decimal" placeholder="例：220" oninput="runMoqCalc()"></div>
+    <div class="field"><label>織造損耗（%，選填）</label><input id="calc-moq-knitloss" type="number" step="any" inputmode="decimal" placeholder="例：5" oninput="runMoqCalc()"></div>
+    <div class="field"><label>染整損耗（%，選填）</label><input id="calc-moq-dyeloss" type="number" step="any" inputmode="decimal" placeholder="例：8" oninput="runMoqCalc()"></div>
     <div class="calc-result" id="calc-moq-result">請輸入以上數值進行試算</div>
   </div>
 
@@ -303,7 +306,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <h3>產能試算</h3>
     <div class="field"><label>機台數</label><input id="calc-cap-machines" type="number" step="any" inputmode="decimal" placeholder="例：5" oninput="runCapacityCalc()"></div>
     <div class="field"><label>單機日產出（公斤/天）</label><input id="calc-cap-output" type="number" step="any" inputmode="decimal" placeholder="例：80" oninput="runCapacityCalc()"></div>
-    <div class="field"><label>稼動率（%）</label><input id="calc-cap-eff" type="number" step="any" inputmode="decimal" placeholder="例：85" oninput="runCapacityCalc()"></div>
+    <div class="field"><label>稼動天數（每月，預設 20 天，可調整）</label><input id="calc-cap-workdays" type="number" step="any" inputmode="decimal" placeholder="20" oninput="runCapacityCalc()"></div>
     <div class="field"><label>訂購量（公斤）</label><input id="calc-cap-orderqty" type="number" step="any" inputmode="decimal" placeholder="例：1000" oninput="runCapacityCalc()"></div>
     <div class="calc-result" id="calc-cap-result">請輸入以上數值進行試算</div>
   </div>
@@ -811,6 +814,8 @@ const PROCESS_LEADTIME_OPTIONS=[
   {key:'貼合',days:15}
 ];
 function buildCalcTab(){
+  const workdaysInput=document.getElementById('calc-cap-workdays');
+  if(workdaysInput && workdaysInput.value===''){workdaysInput.value=20;}
   const ytSel=document.getElementById('calc-lt-yarntype');
   if(ytSel && !ytSel.options.length){
     ytSel.innerHTML=YARN_LEADTIME_TYPES.map(y=>`<option value="${y.key}">${y.key}（預設 ${y.days} 天）</option>`).join('');
@@ -829,24 +834,29 @@ function onYarnTypeChange(){
   runLeadTimeCalc();
 }
 function runMoqCalc(){
-  const kg=parseFloat(document.getElementById('calc-moq-kg').value);
-  const cwCm=parseFloat(document.getElementById('calc-moq-cw').value);
+  const yarnKg=parseFloat(document.getElementById('calc-moq-kg').value);
+  const yarnPct=parseFloat(document.getElementById('calc-moq-yarnpct').value);
+  const cwInch=parseFloat(document.getElementById('calc-moq-cw').value);
   const gsm=parseFloat(document.getElementById('calc-moq-gsm').value);
+  const knitLoss=parseFloat(document.getElementById('calc-moq-knitloss').value)||0;
+  const dyeLoss=parseFloat(document.getElementById('calc-moq-dyeloss').value)||0;
   const el=document.getElementById('calc-moq-result');
-  if(!kg||!cwCm||!gsm){el.textContent='請輸入以上數值進行試算';return;}
-  const cwM=cwCm/100;
-  const meters=kg*1000/(cwM*gsm);
+  if(!yarnKg||!yarnPct||!cwInch||!gsm){el.textContent='請輸入以上數值進行試算';return;}
+  const greigeKg=yarnKg/(yarnPct/100);
+  const finishedKg=greigeKg*(1-knitLoss/100)*(1-dyeLoss/100);
+  const cwM=cwInch*0.0254;
+  const meters=finishedKg*1000/(cwM*gsm);
   const yards=meters/0.9144;
-  el.innerHTML=`MOQ：<b>${kg}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
+  el.innerHTML=`MOQ（成品，已計入紗線佔比${knitLoss||dyeLoss?'與損耗':''}）：<b>${finishedKg.toFixed(1)}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
 }
 function runCapacityCalc(){
   const machines=parseFloat(document.getElementById('calc-cap-machines').value);
   const perMachine=parseFloat(document.getElementById('calc-cap-output').value);
-  const eff=parseFloat(document.getElementById('calc-cap-eff').value);
+  const workdays=parseFloat(document.getElementById('calc-cap-workdays').value);
   const orderQty=parseFloat(document.getElementById('calc-cap-orderqty').value);
   const el=document.getElementById('calc-cap-result');
-  if(!machines||!perMachine||!eff){el.textContent='請輸入以上數值進行試算';return;}
-  const dailyCapacity=machines*perMachine*(eff/100);
+  if(!machines||!perMachine||!workdays){el.textContent='請輸入以上數值進行試算';return;}
+  const dailyCapacity=machines*perMachine*(workdays/30);
   let html=`每日產能：<b>${dailyCapacity.toFixed(1)}</b> 公斤/天`;
   if(orderQty){
     const days=Math.ceil(orderQty/dailyCapacity);
