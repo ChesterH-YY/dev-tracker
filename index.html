@@ -848,7 +848,9 @@ function runMoqCalc(){
   const cwM=cwFullInch*0.0254;
   const meters=finishedKg*1000/(cwM*gsm);
   const yards=meters/0.9144;
-  el.innerHTML=`MOQ（成品，已計入紗線佔比${knitLoss||dyeLoss?'與損耗':''}，以全幅 ${cwFullInch}吋 換算）：<b>${finishedKg.toFixed(1)}</b> 公斤　≈ <b>${meters.toFixed(1)}</b> 公尺　≈ <b>${yards.toFixed(1)}</b> 碼`;
+  el.innerHTML=`<div>MOQ（成品，已計入紗線佔比${knitLoss||dyeLoss?'與損耗':''}，以全幅 ${cwFullInch}吋 換算）</div>
+<div style="font-size:17px;margin-top:6px">主要單位　<b>${yards.toFixed(1)} 碼</b></div>
+<div style="color:var(--color-text-secondary);margin-top:3px">＝ ${finishedKg.toFixed(1)} 公斤　｜　${meters.toFixed(1)} 公尺（非碼數，換算用）</div>`;
 }
 function runCapacityCalc(){
   const machines=parseFloat(document.getElementById('calc-cap-machines').value);
@@ -857,8 +859,9 @@ function runCapacityCalc(){
   const orderQty=parseFloat(document.getElementById('calc-cap-orderqty').value);
   const el=document.getElementById('calc-cap-result');
   if(!machines||!perMachine||!workdays){el.textContent='請輸入以上數值進行試算';return;}
+  const monthlyCapacity=machines*perMachine*workdays;
   const dailyCapacity=machines*perMachine*(workdays/30);
-  let html=`每日產能：<b>${dailyCapacity.toFixed(1)}</b> 公斤/天`;
+  let html=`月產能：<b>${monthlyCapacity.toFixed(1)}</b> 公斤/月　（平均每日產能：${dailyCapacity.toFixed(1)} 公斤/天）`;
   if(orderQty){
     const days=Math.ceil(orderQty/dailyCapacity);
     html+=`　|　訂購量 ${orderQty} 公斤所需天數：<b>${days}</b> 天`;
