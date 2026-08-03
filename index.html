@@ -352,6 +352,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠名稱"></div>
     <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
     <div class="field"><label>Yarn</label><textarea id="f-yarn" rows="2" placeholder="紗支"></textarea></div>
+    <div class="field"><label>開始日期</label><input id="f-startdate" type="date"></div>
     <div class="field"><label>Due Date</label><input id="f-duedate" type="date"></div>
     <div class="field"><label>開發狀態</label>
       <select id="f-status"></select>
@@ -558,8 +559,8 @@ function syncChips(){
 
 function openModal(id=null){
   editingCustomerId=id;
-  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn','f-duedate'];
-  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn','dueDate'];
+  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn','f-startdate','f-duedate'];
+  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn','startDate','dueDate'];
   if(id){
     const c=customers.find(x=>x.id===id);
     document.getElementById('modal-title').textContent='編輯項目';
@@ -569,6 +570,7 @@ function openModal(id=null){
   }else{
     document.getElementById('modal-title').textContent='新增項目';
     fields.forEach(f=>document.getElementById(f).value='');
+    document.getElementById('f-startdate').value=TODAY;
     document.getElementById('f-status').value=STATUSES[0];
     document.getElementById('f-priority').value='';
   }
@@ -596,6 +598,7 @@ function saveCustomer(){
     dyehouse:document.getElementById('f-dyehouse').value.trim(),
     gauge:document.getElementById('f-gauge').value.trim(),
     yarn:document.getElementById('f-yarn').value.trim(),
+    startDate:document.getElementById('f-startdate').value,
     dueDate:document.getElementById('f-duedate').value,
     status:document.getElementById('f-status').value,
     priority:document.getElementById('f-priority').value,
@@ -658,7 +661,7 @@ function renderCardBody(id){
   el.className='card-body open';
   const editable=canEdit(c);
   const canLog=!isReadOnly(currentUserEmail);
-  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['染廠',c.dyehouse],['Gauge',c.gauge],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
+  const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['染廠',c.dyehouse],['Gauge',c.gauge],['開始日期',c.startDate],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
   const longFields=[['Request',c.request],['Yarn',c.yarn]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
   const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
