@@ -1085,10 +1085,10 @@ setupBackdropClose('feedback-modal-bg',closeFeedbackModal);
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
-const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com'];
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
 const ADMIN_EMAILS=['ches.0301@gmail.com'];
-const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com'];
-const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy'};
+const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa'};
 function isReadOnly(email){return READONLY_EMAILS.includes(email);}
 let currentUserEmail=null;
 function canEdit(c){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
