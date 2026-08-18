@@ -140,6 +140,20 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .calc-process-row:last-child{border-bottom:none;}
 .calc-process-row span{flex:1;}
 .calc-process-row input[type=number]{width:56px;padding:4px 6px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.dash-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1.25rem;max-width:640px;}
+.dash-card h3{margin:0 0 1rem;font-size:15px;}
+.dash-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;}
+.dash-stat{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;}
+.dash-stat .num{font-size:22px;font-weight:600;}
+.dash-stat .lbl{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.dash-bar-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;}
+.dash-bar-label{width:100px;flex-shrink:0;color:var(--color-text-secondary);}
+.dash-bar-track{flex:1;height:8px;border-radius:4px;background:var(--color-background-secondary);overflow:hidden;}
+.dash-bar-fill{height:100%;border-radius:4px;}
+.dash-bar-count{width:32px;text-align:right;flex-shrink:0;font-weight:500;}
+.dash-list-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.dash-list-row:last-child{border-bottom:none;}
+.dash-empty{color:var(--color-text-tertiary);font-size:13px;padding:8px 0;}
 .modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
@@ -233,6 +247,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <button class="view-tab active" id="tab-dev" onclick="switchView('dev')">開發項目</button>
   <button class="view-tab" id="tab-feedback" onclick="switchView('feedback')">品牌回饋</button>
   <button class="view-tab" id="tab-calc" onclick="switchView('calc')">試算工具</button>
+  <button class="view-tab" id="tab-dashboard" onclick="switchView('dashboard')" style="display:none">儀表板</button>
 </div>
 <div id="dev-view">
 <div class="filter-section">
@@ -325,6 +340,41 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="field"><label>緩衝天數</label><input id="calc-lt-buffer" type="number" step="any" inputmode="decimal" placeholder="例：3" oninput="runLeadTimeCalc()"></div>
     <div class="field"><label>下單日期（選填）</label><input id="calc-lt-orderdate" type="date" onchange="runLeadTimeCalc()"></div>
     <div class="calc-result" id="calc-lt-result">請輸入以上數值進行試算</div>
+  </div>
+</div>
+
+<div id="dashboard-view" style="display:none">
+  <div class="dash-card">
+    <h3>整體健康度</h3>
+    <div class="dash-stats-row" id="dash-top-stats"></div>
+  </div>
+  <div class="dash-card">
+    <h3>開發狀態分布</h3>
+    <div id="dash-status-dist"></div>
+  </div>
+  <div class="dash-card">
+    <h3>優先度分布（進行中項目）</h3>
+    <div id="dash-priority-dist"></div>
+  </div>
+  <div class="dash-card">
+    <h3>已逾期</h3>
+    <div id="dash-overdue-list"></div>
+  </div>
+  <div class="dash-card">
+    <h3>即將到期（7天內）</h3>
+    <div id="dash-duesoon-list"></div>
+  </div>
+  <div class="dash-card">
+    <h3>停滯項目（超過14天無更新）</h3>
+    <div id="dash-stalled-list"></div>
+  </div>
+  <div class="dash-card">
+    <h3>依建立者統計（進行中項目）</h3>
+    <div id="dash-creator-list"></div>
+  </div>
+  <div class="dash-card">
+    <h3>依品牌統計（進行中項目）</h3>
+    <div id="dash-brand-list"></div>
   </div>
 </div>
 
@@ -781,22 +831,29 @@ function render(){
    品牌回饋 (Brand Feedback) — 獨立於開發項目的第二個 tab
    ──────────────────────────────────────────────────────────── */
 let currentView='dev';
+const DASHBOARD_EMAILS=['ches.0301@gmail.com'];
+function canViewDashboard(email){return DASHBOARD_EMAILS.includes(email);}
 function updateToolbarVisibility(){
   const ro=isReadOnly(currentUserEmail);
   const exportBtn=document.getElementById('btn-export');if(exportBtn)exportBtn.style.display=currentView==='dev'?'':'none';
   const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
+  const dashTab=document.getElementById('tab-dashboard');if(dashTab)dashTab.style.display=canViewDashboard(currentUserEmail)?'':'none';
 }
 function switchView(view){
+  if(view==='dashboard'&&!canViewDashboard(currentUserEmail))view='dev';
   currentView=view;
   document.getElementById('dev-view').style.display=view==='dev'?'block':'none';
   document.getElementById('feedback-view').style.display=view==='feedback'?'block':'none';
   document.getElementById('calc-view').style.display=view==='calc'?'block':'none';
+  document.getElementById('dashboard-view').style.display=view==='dashboard'?'block':'none';
   document.getElementById('tab-dev').classList.toggle('active',view==='dev');
   document.getElementById('tab-feedback').classList.toggle('active',view==='feedback');
   document.getElementById('tab-calc').classList.toggle('active',view==='calc');
+  document.getElementById('tab-dashboard').classList.toggle('active',view==='dashboard');
   updateToolbarVisibility();
+  if(view==='dashboard')renderDashboard();
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -900,6 +957,83 @@ function runLeadTimeCalc(){
     html+=`<br>預估完成日期：<b>${d.toISOString().slice(0,10)}</b>`;
   }
   el.innerHTML=html;
+}
+
+/* ────────────────────────────────────────────────────────────
+   儀表板 (Dashboard) — 僅限 DASHBOARD_EMAILS 檢視，資料來源為開發項目，
+   純前端彙總，不寫入 Firestore
+   ──────────────────────────────────────────────────────────── */
+const STALLED_DAYS=14;
+function daysSince(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((t-d)/86400000);}
+function isActiveItem(c){return c.status!=='完成'&&c.status!=='暫緩'&&c.status!=='取消';}
+function isStalled(c){if(!isActiveItem(c))return false;const ds=daysSince(c.updatedAt);return ds!==null&&ds>=STALLED_DAYS;}
+function renderDashList(elId,list,noteFn){
+  const el=document.getElementById(elId);
+  if(!el)return;
+  if(!list.length){el.innerHTML='<div class="dash-empty">目前沒有符合的項目</div>';return;}
+  const shown=list.slice(0,15);
+  el.innerHTML=shown.map(c=>`<div class="dash-list-row"><span>${c.brand||''} ${c.article||''}</span><span>${noteFn(c)}</span></div>`).join('')+(list.length>15?`<div class="dash-empty">還有 ${list.length-15} 筆未顯示</div>`:'');
+}
+function renderDashboard(){
+  if(!canViewDashboard(currentUserEmail))return;
+  const active=customers.filter(isActiveItem);
+  const overdue=customers.filter(isOverdue).sort((a,b)=>daysUntil(a.dueDate)-daysUntil(b.dueDate));
+  const duesoon=customers.filter(isDueSoon).sort((a,b)=>daysUntil(a.dueDate)-daysUntil(b.dueDate));
+  const stalled=customers.filter(isStalled).sort((a,b)=>daysSince(b.updatedAt)-daysSince(a.updatedAt));
+
+  const topStatsEl=document.getElementById('dash-top-stats');
+  if(topStatsEl){
+    topStatsEl.innerHTML=`
+      <div class="dash-stat"><div class="num">${active.length}</div><div class="lbl">進行中</div></div>
+      <div class="dash-stat"><div class="num" style="color:#B3261E">${overdue.length}</div><div class="lbl">已逾期</div></div>
+      <div class="dash-stat"><div class="num" style="color:#854F0B">${duesoon.length}</div><div class="lbl">即將到期</div></div>
+      <div class="dash-stat"><div class="num" style="color:#5F5E5A">${stalled.length}</div><div class="lbl">停滯項目</div></div>`;
+  }
+
+  const statusDistEl=document.getElementById('dash-status-dist');
+  if(statusDistEl){
+    const counts=STATUSES.map(s=>customers.filter(c=>c.status===s).length);
+    const max=Math.max(1,...counts);
+    statusDistEl.innerHTML=STATUSES.map((s,i)=>{
+      const count=counts[i];
+      const sc=statusColor(s);
+      const pct=(count/max*100).toFixed(0);
+      return `<div class="dash-bar-row"><span class="dash-bar-label">${s}</span><div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%;background:${sc.border}"></div></div><span class="dash-bar-count">${count}</span></div>`;
+    }).join('');
+  }
+
+  const prioDistEl=document.getElementById('dash-priority-dist');
+  if(prioDistEl){
+    const prios=['高','中','低'];
+    const prioColors={'高':'#B3261E','中':'#854F0B','低':'#2E9450'};
+    const counts=prios.map(p=>active.filter(c=>c.priority===p).length);
+    const max=Math.max(1,...counts);
+    prioDistEl.innerHTML=prios.map((p,i)=>{
+      const count=counts[i];
+      const pct=(count/max*100).toFixed(0);
+      return `<div class="dash-bar-row"><span class="dash-bar-label">${p}</span><div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%;background:${prioColors[p]}"></div></div><span class="dash-bar-count">${count}</span></div>`;
+    }).join('');
+  }
+
+  renderDashList('dash-overdue-list',overdue,c=>`逾期 ${Math.abs(daysUntil(c.dueDate))} 天`);
+  renderDashList('dash-duesoon-list',duesoon,c=>`${daysUntil(c.dueDate)} 天後到期`);
+  renderDashList('dash-stalled-list',stalled,c=>`${daysSince(c.updatedAt)} 天未更新`);
+
+  const creatorMap={};
+  active.forEach(c=>{const k=c.createdBy||'—';if(!creatorMap[k])creatorMap[k]={total:0,overdue:0};creatorMap[k].total++;if(isOverdue(c))creatorMap[k].overdue++;});
+  const creatorList=Object.entries(creatorMap).sort((a,b)=>b[1].total-a[1].total);
+  const creatorEl=document.getElementById('dash-creator-list');
+  if(creatorEl){
+    creatorEl.innerHTML=creatorList.length?creatorList.map(([email,d])=>`<div class="dash-list-row"><span>${displayName(email)}</span><span>${d.total} 項${d.overdue?`　<span style="color:#B3261E">逾期 ${d.overdue}</span>`:''}</span></div>`).join(''):'<div class="dash-empty">目前沒有進行中的項目</div>';
+  }
+
+  const brandMap={};
+  active.forEach(c=>{const k=c.brand||'—';if(!brandMap[k])brandMap[k]={total:0,overdue:0};brandMap[k].total++;if(isOverdue(c))brandMap[k].overdue++;});
+  const brandList=Object.entries(brandMap).sort((a,b)=>b[1].total-a[1].total);
+  const brandEl=document.getElementById('dash-brand-list');
+  if(brandEl){
+    brandEl.innerHTML=brandList.length?brandList.map(([brand,d])=>`<div class="dash-list-row"><span>${brand}</span><span>${d.total} 項${d.overdue?`　<span style="color:#B3261E">逾期 ${d.overdue}</span>`:''}</span></div>`).join(''):'<div class="dash-empty">目前沒有進行中的項目</div>';
+  }
 }
 function canEditFeedback(f){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||f.createdBy===currentUserEmail);}
 function buildFeedbackFilters(){
@@ -1118,6 +1252,7 @@ function attachFirestoreListener(){
   unsubscribeItems=itemsRef.onSnapshot(snapshot=>{
     customers=snapshot.docs.map(doc=>{const d=doc.data();if(!d.logs)d.logs=[];return {id:doc.id,...d};});
     render();
+    renderDashboard();
   }, err=>{
     showToast('✗ 讀取資料庫失敗：'+err.message);
   });
