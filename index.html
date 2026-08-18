@@ -151,9 +151,15 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .dash-bar-track{flex:1;height:8px;border-radius:4px;background:var(--color-background-secondary);overflow:hidden;}
 .dash-bar-fill{height:100%;border-radius:4px;}
 .dash-bar-count{width:32px;text-align:right;flex-shrink:0;font-weight:500;}
-.dash-list-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.dash-list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
 .dash-list-row:last-child{border-bottom:none;}
+.dash-list-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.dash-list-title{font-weight:500;}
+.dash-list-meta{font-size:12px;color:var(--color-text-secondary);}
+.dash-list-note{flex-shrink:0;white-space:nowrap;padding-top:1px;}
 .dash-empty{color:var(--color-text-tertiary);font-size:13px;padding:8px 0;}
+.dash-toggle{color:#3C3489;font-size:12.5px;padding:8px 0 2px;cursor:pointer;font-weight:500;}
+.dash-toggle:hover{text-decoration:underline;}
 .modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
@@ -967,12 +973,26 @@ const STALLED_DAYS=14;
 function daysSince(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((t-d)/86400000);}
 function isActiveItem(c){return c.status!=='完成'&&c.status!=='暫緩'&&c.status!=='取消';}
 function isStalled(c){if(!isActiveItem(c))return false;const ds=daysSince(c.updatedAt);return ds!==null&&ds>=STALLED_DAYS;}
+const dashListExpanded={};
+function toggleDashList(elId){
+  dashListExpanded[elId]=!dashListExpanded[elId];
+  renderDashboard();
+}
 function renderDashList(elId,list,noteFn){
   const el=document.getElementById(elId);
   if(!el)return;
   if(!list.length){el.innerHTML='<div class="dash-empty">目前沒有符合的項目</div>';return;}
-  const shown=list.slice(0,15);
-  el.innerHTML=shown.map(c=>`<div class="dash-list-row"><span>${c.brand||''} ${c.article||''}</span><span>${noteFn(c)}</span></div>`).join('')+(list.length>15?`<div class="dash-empty">還有 ${list.length-15} 筆未顯示</div>`:'');
+  const expanded=!!dashListExpanded[elId];
+  const shown=expanded?list:list.slice(0,15);
+  const rows=shown.map(c=>`<div class="dash-list-row">
+    <div class="dash-list-main">
+      <span class="dash-list-title">${c.brand||''} ${c.article||''}</span>
+      <span class="dash-list-meta">負責人：${displayName(c.createdBy)||'—'}　｜　進度：${c.status||'—'}　｜　最後更新：${c.updatedAt||'—'}</span>
+    </div>
+    <span class="dash-list-note">${noteFn(c)}</span>
+  </div>`).join('');
+  const toggle=list.length>15?`<div class="dash-toggle" onclick="toggleDashList('${elId}')">${expanded?'收合':`展開全部（還有 ${list.length-15} 筆未顯示）`}</div>`:'';
+  el.innerHTML=rows+toggle;
 }
 function renderDashboard(){
   if(!canViewDashboard(currentUserEmail))return;
