@@ -160,6 +160,11 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .dash-empty{color:var(--color-text-tertiary);font-size:13px;padding:8px 0;}
 .dash-toggle{color:#3C3489;font-size:12.5px;padding:8px 0 2px;cursor:pointer;font-weight:500;}
 .dash-toggle:hover{text-decoration:underline;}
+.due-custom-panel{display:none;align-items:center;gap:6px;font-size:12.5px;color:var(--color-text-secondary);}
+.due-custom-panel input[type=date]{padding:4px 6px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:12.5px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.status-suggest-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 14px;border-radius:12px;z-index:1000;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw;}
+.btn-suggest-yes{background:#5B8DEF;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-weight:500;flex-shrink:0;}
+.btn-suggest-no{background:transparent;color:#c7c7c7;border:0.5px solid #444;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;flex-shrink:0;}
 .modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
@@ -249,6 +254,11 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
+<div id="status-suggest-bar" class="status-suggest-bar" style="display:none">
+  <span id="status-suggest-text"></span>
+  <button class="btn-suggest-yes" onclick="applySuggestedStatus()">套用</button>
+  <button class="btn-suggest-no" onclick="dismissSuggestedStatus()">忽略</button>
+</div>
 <div class="view-tabs">
   <button class="view-tab active" id="tab-dev" onclick="switchView('dev')">開發項目</button>
   <button class="view-tab" id="tab-feedback" onclick="switchView('feedback')">品牌回饋</button>
@@ -281,6 +291,12 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <div class="filter-group">
     <span class="filter-group-label">交期</span>
     <span id="duerange-chips"></span>
+    <label class="filter-chip" id="chip-due-custom" onclick="toggleDueCustomPanel()"><span class="dot"></span>自訂區間</label>
+    <span id="due-custom-panel" class="due-custom-panel" style="display:none">
+      <input type="date" id="due-range-start" onchange="updateDueCustomRange()">
+      <span>至</span>
+      <input type="date" id="due-range-end" onchange="updateDueCustomRange()">
+    </span>
   </div>
 </div>
 <div class="stats-row" id="stats-row"></div>
@@ -537,17 +553,31 @@ function hasFollowupToday(c){return c.logs&&c.logs.some(l=>logMatchesToday(l.tex
 let customers=[];
 function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
+let dueCustomOpen=false,dueCustomStart='',dueCustomEnd='';
 let feedbackList=[],activeFeedbackStatuses=new Set(),activeFeedbackDateRanges=new Set(),openFeedbackCardId=null,editingFeedbackId=null;
 let expandedLogIds=new Set();
 const LOG_PREVIEW_COUNT=3;
 function toggleLogsExpand(id){expandedLogIds.has(id)?expandedLogIds.delete(id):expandedLogIds.add(id);renderCardBody(id);}
 
 function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
-function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();const bf=document.getElementById('brand-filter');if(bf)bf.value='';const cf=document.getElementById('creator-filter');if(cf)cf.value='';syncChips();render();}
+function closeDueCustomPanel(){dueCustomOpen=false;dueCustomStart='';dueCustomEnd='';const p=document.getElementById('due-custom-panel');if(p)p.style.display='none';const s=document.getElementById('due-range-start');if(s)s.value='';const e=document.getElementById('due-range-end');if(e)e.value='';}
+function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();closeDueCustomPanel();const bf=document.getElementById('brand-filter');if(bf)bf.value='';const cf=document.getElementById('creator-filter');if(cf)cf.value='';syncChips();render();}
 function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
 function togglePriority(p){activePriorities.has(p)?activePriorities.delete(p):activePriorities.add(p);syncChips();render();}
 function toggleDevType(t){activeDevTypes.has(t)?activeDevTypes.delete(t):activeDevTypes.add(t);syncChips();render();}
-function toggleDueRange(n){activeDueRanges.has(n)?activeDueRanges.delete(n):activeDueRanges.add(n);syncChips();render();}
+function toggleDueRange(n){if(dueCustomOpen)closeDueCustomPanel();activeDueRanges.has(n)?activeDueRanges.delete(n):activeDueRanges.add(n);syncChips();render();}
+function toggleDueCustomPanel(){
+  dueCustomOpen=!dueCustomOpen;
+  if(dueCustomOpen){activeDueRanges.clear();}
+  else{dueCustomStart='';dueCustomEnd='';const s=document.getElementById('due-range-start');if(s)s.value='';const e=document.getElementById('due-range-end');if(e)e.value='';}
+  const p=document.getElementById('due-custom-panel');if(p)p.style.display=dueCustomOpen?'flex':'none';
+  syncChips();render();
+}
+function updateDueCustomRange(){
+  dueCustomStart=document.getElementById('due-range-start').value;
+  dueCustomEnd=document.getElementById('due-range-end').value;
+  render();
+}
 
 function buildFilters(){
   document.getElementById('status-chips').innerHTML=STATUSES.map((s,i)=>`<label class="filter-chip" id="chip-status-${i}" onclick="toggleStatus('${s}')"><span class="dot"></span>${s}</label>`).join('');
@@ -581,7 +611,7 @@ function buildCreatorOptions(){
 function syncChips(){
   const bf=document.getElementById('brand-filter');
   const cf=document.getElementById('creator-filter');
-  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&(!bf||!bf.value)&&(!cf||!cf.value);
+  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&!dueCustomOpen&&(!bf||!bf.value)&&(!cf||!cf.value);
   document.getElementById('chip-all').classList.toggle('checked',none);
   STATUSES.forEach((s,i)=>{
     const el=document.getElementById('chip-status-'+i);if(!el)return;
@@ -611,6 +641,12 @@ function syncChips(){
     if(on){const c=dueRangeColor(n);el.style.background=c.bg;el.style.color=c.fg;el.style.borderColor=c.border;}
     else{el.style.background='';el.style.color='';el.style.borderColor='';}
   });
+  const dueCustomEl=document.getElementById('chip-due-custom');
+  if(dueCustomEl){
+    dueCustomEl.classList.toggle('checked',dueCustomOpen);
+    if(dueCustomOpen){const c=dueRangeColor('overdue');dueCustomEl.style.background=c.bg;dueCustomEl.style.color=c.fg;dueCustomEl.style.borderColor=c.border;}
+    else{dueCustomEl.style.background='';dueCustomEl.style.color='';dueCustomEl.style.borderColor='';}
+  }
 }
 
 function openModal(id=null){
@@ -633,6 +669,16 @@ function openModal(id=null){
   document.getElementById('modal-bg').style.display='flex';setTimeout(()=>document.getElementById('f-brand').focus(),50);
 }
 function closeModal(){document.getElementById('modal-bg').style.display='none';editingCustomerId=null;}
+function duplicateCustomer(id){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');return;}
+  const c=customers.find(x=>x.id===id);
+  if(!c)return;
+  openModal();
+  const specFields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn'];
+  const specKeys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn'];
+  specFields.forEach((f,i)=>{document.getElementById(f).value=c[specKeys[i]]||'';});
+  document.getElementById('modal-title').textContent='新增項目（已複製規格，請確認 Article# 等欄位）';
+}
 function saveCustomer(){
   if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closeModal();return;}
   const brand=document.getElementById('f-brand').value.trim();if(!brand){document.getElementById('f-brand').focus();return;}
@@ -683,13 +729,55 @@ function setPriority(id,p){
   if(isReadOnly(currentUserEmail)||(c&&!canEdit(c))){showToast('✗ 你沒有權限修改這筆資料');return;}
   itemsRef.doc(id).update({priority:p,updatedAt:TODAY}).catch(err=>showToast('✗ 更新失敗：'+err.message));
 }
+const STATUS_KEYWORD_RULES=[
+  {keywords:['上機','準備上機','開始織','開始上機'],status:'試布中'},
+  {keywords:['染色完成','打色完成','打色OK'],status:'試布中'},
+  {keywords:['送測','已送測','外送測試'],status:'測試中'},
+  {keywords:['實穿測試中'],status:'實穿測試中'},
+  {keywords:['核可','客戶核可','確認通過'],status:'已核可'},
+  {keywords:['送客評','客戶確認中','寄核'],status:'待客評/確認'},
+  {keywords:['暫緩','先擱置','hold'],status:'暫緩'},
+  {keywords:['取消開發','不開發了'],status:'取消'}
+];
+function matchStatusKeyword(text){
+  for(const rule of STATUS_KEYWORD_RULES){
+    for(const kw of rule.keywords){
+      if(text.includes(kw))return rule.status;
+    }
+  }
+  return null;
+}
+let pendingStatusSuggestion=null;
+function maybeSuggestStatus(cid,text){
+  const c=customers.find(x=>x.id===cid);
+  if(!c)return;
+  const matched=matchStatusKeyword(text);
+  if(!matched||matched===c.status)return;
+  pendingStatusSuggestion={cid,status:matched};
+  const bar=document.getElementById('status-suggest-bar');
+  const txt=document.getElementById('status-suggest-text');
+  if(!bar||!txt)return;
+  txt.textContent=`偵測到紀錄內容，是否將開發狀態更新為「${matched}」？`;
+  bar.style.display='flex';
+}
+function applySuggestedStatus(){
+  if(!pendingStatusSuggestion)return;
+  const {cid,status}=pendingStatusSuggestion;
+  setStatus(cid,status);
+  dismissSuggestedStatus();
+}
+function dismissSuggestedStatus(){
+  pendingStatusSuggestion=null;
+  const bar=document.getElementById('status-suggest-bar');
+  if(bar)bar.style.display='none';
+}
 function addLog(id){
   if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增紀錄');return;}
   const inp=document.getElementById('log-inp-'+id);const text=inp.value.trim();if(!text)return;
   const c=customers.find(x=>x.id===id);if(!c)return;
   const newLogs=[{id:newLogId(),date:TODAY,text},...(c.logs||[])];
   inp.value='';
-  itemsRef.doc(id).update({logs:newLogs,updatedAt:TODAY}).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
+  itemsRef.doc(id).update({logs:newLogs,updatedAt:TODAY}).then(()=>maybeSuggestStatus(id,text)).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
 }
 function deleteLog(cid,lid){
   if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法刪除紀錄');return;}
@@ -706,7 +794,7 @@ function saveEditLog(cid,lid){
   const dt=document.getElementById('log-edit-date-'+lid).value;
   if(!txt)return;
   const newLogs=(c.logs||[]).map(l=>l.id===lid?{...l,text:txt,date:dt||l.date}:l);
-  itemsRef.doc(cid).update({logs:newLogs}).catch(err=>showToast('✗ 更新紀錄失敗：'+err.message));
+  itemsRef.doc(cid).update({logs:newLogs}).then(()=>maybeSuggestStatus(cid,txt)).catch(err=>showToast('✗ 更新紀錄失敗：'+err.message));
 }
 function toggleCard(id){openCardId=openCardId===id?null:id;render();}
 
@@ -728,7 +816,9 @@ function renderCardBody(id){
   const logsToRender=logsExpanded?c.logs:c.logs.slice(0,LOG_PREVIEW_COUNT);
   const logsHTML=logsToRender.map(l=>{const isToday=logMatchesToday(l.text);return`<div class="log-entry${isToday?' today-followup':''}"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge">${isToday?'<span class="red-dot"></span>':''}<span>${l.date}</span></span><span class="log-text-display">${l.text.replace(/\n/g,'<br>')}</span>${canLog?`<div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deleteLog('${id}','${l.id}')"><i class="ti ti-trash"></i></button></div>`:''}</div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${l.text}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="saveEditLog('${id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`;}).join('');
   const logsToggleHTML=c.logs.length>LOG_PREVIEW_COUNT?`<button class="btn-log-toggle" onclick="toggleLogsExpand('${id}')">${logsExpanded?'收合紀錄':'展開全部 '+c.logs.length+' 筆紀錄'}</button>`:'';
-  const footerHTML=editable?`<div class="card-footer"><button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:flex-start;color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</div>`;
+  const canCreate=!isReadOnly(currentUserEmail);
+  const dupBtn=canCreate?`<button class="btn-edit-c" onclick="duplicateCustomer('${id}')"><i class="ti ti-copy"></i> 複製</button>`:'';
+  const footerHTML=editable?`<div class="card-footer">${dupBtn}<button class="btn-edit-c" onclick="openModal('${id}')"><i class="ti ti-edit"></i> 編輯項目</button><button class="btn-del-c" onclick="deleteCustomer('${id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:(canCreate?`<div class="card-footer" style="justify-content:space-between"><span style="color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</span>${dupBtn}</div>`:`<div class="card-footer" style="justify-content:flex-start;color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯此項目基本資料</div>`);
   el.innerHTML=`${infoHTML}<div class="section-label">開發狀態</div><div class="status-grid">${statusHTML}</div><div class="section-label">優先度</div><div class="status-grid">${priorityHTML}</div><div class="divider"></div><div class="section-label" style="margin-top:0">開發紀錄</div>${c.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggleHTML}${canLog?`<div class="add-log-row"><input class="log-input" id="log-inp-${id}" type="text" placeholder="記錄開發進度，含日期可設當日提醒…" onkeydown="if(event.key==='Enter')addLog('${id}')"><button class="btn-log" onclick="addLog('${id}')">新增</button></div><div class="log-hint">💡 記錄中寫入今天日期（如 ${TODAY} 或 ${TODAY.slice(5)}）會自動出現紅點提醒</div>`:''}${footerHTML}`;
 }
 
@@ -800,6 +890,9 @@ function render(){
         if(wantsOverdue&&du<0)dueMatch=true;
       }
       if(!dueMatch)return false;
+    }
+    if(dueCustomOpen&&dueCustomStart&&dueCustomEnd){
+      if(!c.dueDate||c.dueDate<dueCustomStart||c.dueDate>dueCustomEnd)return false;
     }
     if(q){
       const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.dyehouse,c.yarn].join(' ').toLowerCase();
