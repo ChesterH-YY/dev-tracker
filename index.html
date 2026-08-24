@@ -165,6 +165,16 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .status-suggest-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 14px;border-radius:12px;z-index:1000;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw;}
 .btn-suggest-yes{background:#5B8DEF;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-weight:500;flex-shrink:0;}
 .btn-suggest-no{background:transparent;color:#c7c7c7;border:0.5px solid #444;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;flex-shrink:0;}
+.compare-checkbox-wrap{display:flex;align-items:center;margin-right:8px;flex-shrink:0;}
+.compare-checkbox-wrap input{width:16px;height:16px;cursor:pointer;}
+.compare-float-btn{position:fixed;bottom:24px;right:24px;background:#3C3489;color:#EEEDFE;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:99px;z-index:998;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;align-items:center;gap:6px;}
+.compare-float-btn:hover{background:#2E2870;}
+.compare-modal{width:auto;max-width:94vw;}
+.compare-table{border-collapse:collapse;width:100%;font-size:13px;}
+.compare-table th,.compare-table td{border:0.5px solid var(--color-border-tertiary);padding:8px 10px;text-align:left;vertical-align:top;}
+.compare-table th{background:var(--color-background-secondary);white-space:nowrap;}
+.compare-row-label{font-weight:500;color:var(--color-text-secondary);white-space:nowrap;background:var(--color-background-secondary);}
+.compare-match{background:#DCEFE0;color:#1F6D3A;font-weight:500;}
 .modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
 .btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
 .btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
@@ -444,6 +454,22 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   </div>
 </div>
 
+<div id="compare-modal-bg" class="modal-bg" style="display:none">
+  <div class="modal compare-modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3 style="margin:0">卡片比較</h3>
+      <button class="btn-cancel" style="padding:5px 12px" onclick="clearCompareSelection()">清空比較</button>
+    </div>
+    <div id="compare-modal-body"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeCompareModal()">關閉</button>
+    </div>
+  </div>
+</div>
+<div id="compare-float-btn" class="compare-float-btn" style="display:none" onclick="openCompareModal()">
+  <i class="ti ti-git-compare"></i> 比較已選 (<span id="compare-count">0</span>)
+</div>
+
 <div id="feedback-modal-bg" class="modal-bg" style="display:none">
   <div class="modal">
     <h3 id="feedback-modal-title">新增回饋</h3>
@@ -554,6 +580,65 @@ let customers=[];
 function newLogId(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 let activeStatuses=new Set(),activePriorities=new Set(),activeDevTypes=new Set(),activeDueRanges=new Set(),openCardId=null,editingCustomerId=null;
 let dueCustomOpen=false,dueCustomStart='',dueCustomEnd='';
+const COMPARE_EMAILS=['ches.0301@gmail.com'];
+const COMPARE_MAX=5;
+const COMPARE_FIELDS=[['Development Type','devType'],['Family','family'],['Season','season'],['CW','cw'],['GSM','gsm'],['Knitter','knitter'],['染廠','dyehouse'],['Gauge','gauge'],['Yarn','yarn']];
+function canCompare(email){return COMPARE_EMAILS.includes(email);}
+let compareSelected=new Set();
+function toggleCompareSelect(id,ev){
+  if(ev)ev.stopPropagation();
+  if(!canCompare(currentUserEmail))return;
+  const chk=document.getElementById('compare-chk-'+id);
+  if(compareSelected.has(id)){
+    compareSelected.delete(id);
+  }else{
+    if(compareSelected.size>=COMPARE_MAX){
+      if(chk)chk.checked=false;
+      showToast(`✗ 最多只能同時比較 ${COMPARE_MAX} 張卡片`);
+      return;
+    }
+    compareSelected.add(id);
+  }
+  updateCompareFloatButton();
+}
+function updateCompareFloatButton(){
+  const btn=document.getElementById('compare-float-btn');
+  if(!btn)return;
+  const n=compareSelected.size;
+  const cnt=document.getElementById('compare-count');
+  if(cnt)cnt.textContent=n;
+  btn.style.display=(canCompare(currentUserEmail)&&n>=2&&currentView==='dev')?'flex':'none';
+}
+function clearCompareSelection(){
+  compareSelected.clear();
+  updateCompareFloatButton();
+  render();
+  renderCompareModal();
+}
+function openCompareModal(){
+  if(!canCompare(currentUserEmail))return;
+  renderCompareModal();
+  document.getElementById('compare-modal-bg').style.display='flex';
+}
+function closeCompareModal(){document.getElementById('compare-modal-bg').style.display='none';}
+function renderCompareModal(){
+  const body=document.getElementById('compare-modal-body');
+  if(!body)return;
+  const cards=[...compareSelected].map(id=>customers.find(c=>c.id===id)).filter(Boolean);
+  if(cards.length<2){body.innerHTML='<div class="dash-empty">請至少選擇 2 張卡片進行比較</div>';return;}
+  const headerRow=`<tr><th>欄位</th>${cards.map(c=>`<th>${c.brand||''}<br><span style="font-weight:400;color:var(--color-text-secondary)">${c.article||''}</span></th>`).join('')}</tr>`;
+  const bodyRows=COMPARE_FIELDS.map(([label,key])=>{
+    const values=cards.map(c=>(c[key]||'').toString().trim());
+    const counts={};
+    values.forEach(v=>{if(v)counts[v]=(counts[v]||0)+1;});
+    const cells=values.map(v=>{
+      const hi=v&&counts[v]>=2;
+      return `<td${hi?' class="compare-match"':''}>${v?v.replace(/\n/g,'<br>'):'—'}</td>`;
+    }).join('');
+    return `<tr><td class="compare-row-label">${label}</td>${cells}</tr>`;
+  }).join('');
+  body.innerHTML=`<table class="compare-table"><thead>${headerRow}</thead><tbody>${bodyRows}</tbody></table>`;
+}
 let feedbackList=[],activeFeedbackStatuses=new Set(),activeFeedbackDateRanges=new Set(),openFeedbackCardId=null,editingFeedbackId=null;
 let expandedLogIds=new Set();
 const LOG_PREVIEW_COUNT=3;
@@ -871,6 +956,8 @@ function importData(event){
 function render(){
   buildBrandOptions();
   buildCreatorOptions();
+  [...compareSelected].forEach(id=>{if(!customers.find(c=>c.id===id))compareSelected.delete(id);});
+  updateCompareFloatButton();
   const q=document.getElementById('search').value.toLowerCase();
   const brandVal=document.getElementById('brand-filter').value;
   const creatorVal=document.getElementById('creator-filter').value;
@@ -921,7 +1008,7 @@ function render(){
     const overdue=isOverdue(c);
     const dueSoon=!overdue&&isDueSoon(c);
     const lockIcon=canEdit(c)?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
-    return`<div class="customer-card${followup?' has-followup':''}${overdue?' is-overdue':''}${dueSoon?' is-due-soon':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last${overdue?' overdue-text':''}${dueSoon?' due-soon-text':''}">${overdue?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${dueSoon?'<i class="ti ti-clock" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
+    return`<div class="customer-card${followup?' has-followup':''}${overdue?' is-overdue':''}${dueSoon?' is-due-soon':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')">${canCompare(currentUserEmail)?`<label class="compare-checkbox-wrap" onclick="event.stopPropagation()" title="加入比較"><input type="checkbox" id="compare-chk-${c.id}" ${compareSelected.has(c.id)?'checked':''} onchange="toggleCompareSelect('${c.id}',event)"></label>`:''}<div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last${overdue?' overdue-text':''}${dueSoon?' due-soon-text':''}">${overdue?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${dueSoon?'<i class="ti ti-clock" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
   }).join('');
   list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
@@ -939,6 +1026,7 @@ function updateToolbarVisibility(){
   const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
   const dashTab=document.getElementById('tab-dashboard');if(dashTab)dashTab.style.display=canViewDashboard(currentUserEmail)?'':'none';
+  updateCompareFloatButton();
 }
 function switchView(view){
   if(view==='dashboard'&&!canViewDashboard(currentUserEmail))view='dev';
@@ -1328,6 +1416,7 @@ function setupBackdropClose(bgId,closeFn){
 }
 setupBackdropClose('modal-bg',closeModal);
 setupBackdropClose('feedback-modal-bg',closeFeedbackModal);
+setupBackdropClose('compare-modal-bg',closeCompareModal);
 
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
