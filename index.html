@@ -646,7 +646,7 @@ function toggleLogsExpand(id){expandedLogIds.has(id)?expandedLogIds.delete(id):e
 
 function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#FAECE7','#712B13'],['#FBEAF0','#72243E'],['#F0E6FB','#5B1E8C']];return p[(name||' ').charCodeAt(0)%p.length];}
 function closeDueCustomPanel(){dueCustomOpen=false;dueCustomStart='';dueCustomEnd='';const p=document.getElementById('due-custom-panel');if(p)p.style.display='none';const s=document.getElementById('due-range-start');if(s)s.value='';const e=document.getElementById('due-range-end');if(e)e.value='';}
-function toggleAll(){activeStatuses.clear();activePriorities.clear();activeDevTypes.clear();activeDueRanges.clear();closeDueCustomPanel();const bf=document.getElementById('brand-filter');if(bf)bf.value='';const cf=document.getElementById('creator-filter');if(cf)cf.value='';syncChips();render();}
+function toggleAll(){activeStatuses.clear();syncChips();render();}
 function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
 function togglePriority(p){activePriorities.has(p)?activePriorities.delete(p):activePriorities.add(p);syncChips();render();}
 function toggleDevType(t){activeDevTypes.has(t)?activeDevTypes.delete(t):activeDevTypes.add(t);syncChips();render();}
@@ -694,10 +694,7 @@ function buildCreatorOptions(){
 }
 
 function syncChips(){
-  const bf=document.getElementById('brand-filter');
-  const cf=document.getElementById('creator-filter');
-  const none=activeStatuses.size===0&&activePriorities.size===0&&activeDevTypes.size===0&&activeDueRanges.size===0&&!dueCustomOpen&&(!bf||!bf.value)&&(!cf||!cf.value);
-  document.getElementById('chip-all').classList.toggle('checked',none);
+  document.getElementById('chip-all').classList.toggle('checked',activeStatuses.size===0);
   STATUSES.forEach((s,i)=>{
     const el=document.getElementById('chip-status-'+i);if(!el)return;
     const on=activeStatuses.has(s);
