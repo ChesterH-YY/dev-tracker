@@ -558,8 +558,8 @@ function priorityColor(p){return PRIORITY_COLORS[p]||{bg:'#F1EFE8',fg:'#444441',
 function devTypeColor(t){return DEV_TYPE_COLORS[t]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
 function dueRangeColor(n){return DUE_RANGE_COLORS[n]||{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'};}
 function daysUntil(dateStr){if(!dateStr)return null;const d=new Date(dateStr+'T00:00:00');const t=new Date(TODAY+'T00:00:00');return Math.round((d-t)/86400000);}
-function isOverdue(c){const du=daysUntil(c.dueDate);return du!==null&&du<0&&c.status!=='完成'&&c.status!=='取消';}
-function isDueSoon(c){const du=daysUntil(c.dueDate);return du!==null&&du>=0&&du<=7&&c.status!=='完成'&&c.status!=='取消';}
+function isOverdue(c){const du=daysUntil(c.dueDate);return du!==null&&du<0&&c.status!=='完成'&&c.status!=='取消'&&c.status!=='暫緩';}
+function isDueSoon(c){const du=daysUntil(c.dueDate);return du!==null&&du>=0&&du<=7&&c.status!=='完成'&&c.status!=='取消'&&c.status!=='暫緩';}
 
 function logMatchesToday(text){
   const[ty,tm,td]=TODAY.split('-');
