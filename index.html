@@ -61,7 +61,10 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 #status-chips::-webkit-scrollbar-track{background:transparent;}
 .mini-select{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);}
 .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1.25rem;}
-.stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center;border:0.5px solid var(--color-border-tertiary);}
+.stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center;border:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:border-color .12s,background .12s;}
+.stat-card:hover{border-color:#3C3489;}
+.stat-card.active{background:#EEEDFE;border-color:#3C3489;}
+.stat-card.active .stat-num,.stat-card.active .stat-label{color:#3C3489;}
 .stat-num{font-size:19px;font-weight:500;color:var(--color-text-primary);}
 .stat-label{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
 .customer-list{display:flex;flex-direction:column;gap:10px;}
@@ -648,6 +651,7 @@ function avatarColors(name){const p=[['#E6F1FB','#0C447C'],['#EEEDFE','#3C3489']
 function closeDueCustomPanel(){dueCustomOpen=false;dueCustomStart='';dueCustomEnd='';const p=document.getElementById('due-custom-panel');if(p)p.style.display='none';const s=document.getElementById('due-range-start');if(s)s.value='';const e=document.getElementById('due-range-end');if(e)e.value='';}
 function toggleAll(){activeStatuses.clear();syncChips();render();}
 function toggleStatus(s){activeStatuses.has(s)?activeStatuses.delete(s):activeStatuses.add(s);syncChips();render();}
+function selectStatusOnly(s){if(activeStatuses.size===1&&activeStatuses.has(s)){activeStatuses.clear();}else{activeStatuses.clear();activeStatuses.add(s);}syncChips();render();}
 function togglePriority(p){activePriorities.has(p)?activePriorities.delete(p):activePriorities.add(p);syncChips();render();}
 function toggleDevType(t){activeDevTypes.has(t)?activeDevTypes.delete(t):activeDevTypes.add(t);syncChips();render();}
 function toggleDueRange(n){if(dueCustomOpen)closeDueCustomPanel();activeDueRanges.has(n)?activeDueRanges.delete(n):activeDueRanges.add(n);syncChips();render();}
@@ -995,7 +999,8 @@ function render(){
     return pa2-pb2;
   });
   const byStatus={};STATUSES.forEach(s=>byStatus[s]=0);list.forEach(c=>byStatus[c.status]=(byStatus[c.status]||0)+1);
-  document.getElementById('stats-row').innerHTML=`<div class="stat-card"><div class="stat-num">${list.length}</div><div class="stat-label">項目數</div></div>${STATUSES.filter(s=>byStatus[s]).map(s=>`<div class="stat-card"><div class="stat-num">${byStatus[s]}</div><div class="stat-label">${s}</div></div>`).join('')}`;
+  const totalActive=activeStatuses.size===0;
+  document.getElementById('stats-row').innerHTML=`<div class="stat-card${totalActive?' active':''}" onclick="toggleAll()"><div class="stat-num">${list.length}</div><div class="stat-label">項目數</div></div>${STATUSES.filter(s=>byStatus[s]).map(s=>{const isolated=activeStatuses.size===1&&activeStatuses.has(s);return `<div class="stat-card${isolated?' active':''}" onclick="selectStatusOnly('${s}')"><div class="stat-num">${byStatus[s]}</div><div class="stat-label">${s}</div></div>`;}).join('')}`;
   const el=document.getElementById('customer-list');
   if(!list.length){el.innerHTML='<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>沒有符合的項目</div>';return;}
   el.innerHTML=list.map(c=>{
