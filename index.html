@@ -69,6 +69,20 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .stat-label{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
 .customer-list{display:flex;flex-direction:column;gap:10px;}
 .customer-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
+.group-block{display:flex;flex-direction:column;gap:8px;}
+.group-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);cursor:pointer;user-select:none;}
+.group-header:hover{border-color:#3C3489;}
+.group-block.open>.group-header{background:#EEEDFE;border-color:#3C3489;}
+.group-title{font-weight:600;font-size:14px;color:var(--color-text-primary);}
+.group-block.ungrouped .group-title{color:var(--color-text-secondary);font-weight:500;}
+.group-count{font-size:12px;font-weight:500;color:#3C3489;background:#EEEDFE;border-radius:99px;padding:1px 8px;}
+.group-block.open .group-count{background:#fff;}
+.group-meta{font-size:12px;color:var(--color-text-secondary);}
+.group-overdue{font-size:12px;color:#B3261E;font-weight:600;}
+.group-spacer{flex:1;}
+.group-body{display:flex;flex-direction:column;gap:8px;margin-left:12px;padding-left:12px;border-left:2px solid #C9C6F0;}
+.group-tools{font-size:12px;color:#3C3489;cursor:pointer;padding:3px 6px;}
+.group-tools:hover{text-decoration:underline;}
 .customer-card.has-followup{border-color:#E05252;}
 .customer-card.is-overdue{border-left:3px solid #B3261E;}
 .customer-card.is-due-soon{border-left:3px solid #E65100;}
@@ -258,7 +272,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div class="crm-wrap">
 <div class="top-bar">
   <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
-  <input class="search-bar" type="text" placeholder="搜尋 Brand / Article# / Developer..." id="search" oninput="render()">
+  <input class="search-bar" type="text" placeholder="搜尋 Article / Family / 紗線…" title="可搜尋 品牌、Article、Family、紗線、針數、Request、Developer、Knitter、染廠、Season；多個關鍵字用空格分隔，需全部符合" id="search" oninput="render()">
   <button class="btn-io btn-io-export" id="btn-export" onclick="exportData()"><i class="ti ti-download"></i> 匯出</button>
   <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -310,6 +324,17 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
       <span>至</span>
       <input type="date" id="due-range-end" onchange="updateDueCustomRange()">
     </span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">分組檢視</span>
+    <select class="mini-select" id="group-by" onchange="setGroupBy(this.value)">
+      <option value="none">不分組</option>
+      <option value="family">依 Family</option>
+      <option value="brand">依品牌</option>
+      <option value="gauge">依針數</option>
+      <option value="season">依 Season</option>
+    </select>
+    <span id="group-tools" style="display:none"><span class="group-tools" onclick="setAllGroups(true)">全部展開</span><span class="group-tools" onclick="setAllGroups(false)">全部收合</span></span>
   </div>
 </div>
 <div class="stats-row" id="stats-row"></div>
@@ -428,7 +453,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     </div>
     <div class="field"><label>Developer</label><input id="f-developer" type="text" placeholder="開發人員"></div>
     <div class="field"><label>Request</label><textarea id="f-request" rows="2" placeholder="需求內容"></textarea></div>
-    <div class="field"><label>Family</label><input id="f-family" type="text" placeholder="系列 / Family"></div>
+    <div class="field"><label>Family</label><input id="f-family" type="text" list="family-datalist" placeholder="系列 / Family（可從清單選或直接輸入）"><datalist id="family-datalist"></datalist></div>
     <div class="field"><label>Season</label><input id="f-season" type="text" placeholder="季節，如 SS27"></div>
     <div class="field"><label>Article#</label><input id="f-article" type="text" placeholder="布號 / 料號"></div>
     <div class="field"><label>CW</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="可裁幅寬（純數字）"></div>
@@ -688,6 +713,68 @@ function buildBrandOptions(){
   const dl=document.getElementById('brand-datalist');
   const dlBrands=[...new Set([...brands,...PRESET_BRANDS])].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
   if(dl)dl.innerHTML=dlBrands.map(b=>`<option value="${b}">`).join('');
+  const fdl=document.getElementById('family-datalist');
+  if(fdl){
+    const famMap=new Map();
+    customers.forEach(c=>{const v=String(c.family||'').trim();if(v&&!isPlaceholderValue(v)&&!famMap.has(v.toLowerCase()))famMap.set(v.toLowerCase(),v);});
+    fdl.innerHTML=[...famMap.values()].sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(f=>`<option value="${escHtml(f)}">`).join('');
+  }
+}
+
+/* ── 分組檢視 (group-by view) ── */
+const GROUP_PLACEHOLDERS=['','n/a','na','tba','-','—','none'];
+function isPlaceholderValue(v){return GROUP_PLACEHOLDERS.includes(String(v||'').trim().toLowerCase());}
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let groupBy='none';
+try{const g=localStorage.getItem('dt_groupBy');if(['none','family','brand','gauge','season'].includes(g))groupBy=g;}catch(e){}
+const groupExpanded=new Set();
+let renderedGroupKeys=[];
+// returns {key,label}; key '' means 未分組
+function groupKeyOf(c,by){
+  let raw=String(c[by]==null?'':c[by]).replace(/\s+/g,' ').trim();
+  if(isPlaceholderValue(raw))return {key:'',label:''};
+  if(by==='gauge'){const m=raw.match(/^(\d+(?:\.\d+)?)\s*G?/i);if(m)raw=m[1]+'G';}
+  return {key:raw.toLowerCase(),label:raw};
+}
+function setGroupBy(v){
+  groupBy=v;
+  try{localStorage.setItem('dt_groupBy',v);}catch(e){}
+  render();
+}
+function toggleGroup(i){
+  const k=renderedGroupKeys[i];if(k===undefined)return;
+  const id=groupBy+'|'+k;
+  groupExpanded.has(id)?groupExpanded.delete(id):groupExpanded.add(id);
+  render();
+}
+function setAllGroups(open){
+  renderedGroupKeys.forEach(k=>{const id=groupBy+'|'+k;open?groupExpanded.add(id):groupExpanded.delete(id);});
+  render();
+}
+function buildGroupedHTML(list,forceOpen){
+  const groups=new Map();
+  list.forEach(c=>{
+    const {key,label}=groupKeyOf(c,groupBy);
+    if(!groups.has(key))groups.set(key,{label,labels:{},items:[]});
+    const g=groups.get(key);g.items.push(c);g.labels[label]=(g.labels[label]||0)+1;
+  });
+  // show the most common spelling in each group (ties prefer a capitalized spelling)
+  groups.forEach(g=>{g.label=Object.entries(g.labels).sort((a,b)=>b[1]-a[1]||(/^[A-Z]/.test(b[0])?1:0)-(/^[A-Z]/.test(a[0])?1:0))[0][0];});
+  const ordered=[...groups.entries()].sort((a,b)=>{
+    if(a[0]==='')return 1;if(b[0]==='')return -1;
+    if(b[1].items.length!==a[1].items.length)return b[1].items.length-a[1].items.length;
+    return a[1].label.localeCompare(b[1].label,'zh-Hant');
+  });
+  renderedGroupKeys=ordered.map(([k])=>k);
+  return ordered.map(([key,g],i)=>{
+    const open=forceOpen||groupExpanded.has(groupBy+'|'+key);
+    const sc={};g.items.forEach(c=>{sc[c.status]=(sc[c.status]||0)+1;});
+    const statusTxt=STATUSES.filter(s=>sc[s]).map(s=>`${s} ${sc[s]}`).join('・');
+    const overdueN=g.items.filter(isOverdue).length;
+    const dues=g.items.filter(c=>c.dueDate&&isActiveItem(c)).map(c=>c.dueDate).sort();
+    const label=key===''?'未分組（空白 / N/A / TBA）':escHtml(g.label);
+    return `<div class="group-block${open?' open':''}${key===''?' ungrouped':''}"><div class="group-header" onclick="toggleGroup(${i})"><i class="ti ti-chevron-${open?'down':'right'}" style="font-size:15px;color:#3C3489"></i><span class="group-title">${label}</span><span class="group-count">${g.items.length} 項</span><span class="group-meta">${statusTxt}</span><span class="group-spacer"></span>${overdueN?`<span class="group-overdue"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px"></i> 逾期 ${overdueN}</span>`:''}${dues.length?`<span class="group-meta">最近交期 ${dues[0]}</span>`:''}</div>${open?`<div class="group-body">${g.items.map(cardHTML).join('')}</div>`:''}</div>`;
+  }).join('');
 }
 
 function displayName(email){return USER_NAMES[email]||email||'';}
@@ -962,7 +1049,8 @@ function render(){
   buildCreatorOptions();
   [...compareSelected].forEach(id=>{if(!customers.find(c=>c.id===id))compareSelected.delete(id);});
   updateCompareFloatButton();
-  const q=document.getElementById('search').value.toLowerCase();
+  const q=document.getElementById('search').value.toLowerCase().trim();
+  const qTerms=q?q.split(/\s+/):[];
   const brandVal=document.getElementById('brand-filter').value;
   const creatorVal=document.getElementById('creator-filter').value;
   let list=customers.filter(c=>{
@@ -985,9 +1073,9 @@ function render(){
     if(dueCustomOpen&&dueCustomStart&&dueCustomEnd){
       if(!c.dueDate||c.dueDate<dueCustomStart||c.dueDate>dueCustomEnd)return false;
     }
-    if(q){
-      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.knitter,c.dyehouse,c.yarn].join(' ').toLowerCase();
-      if(!hay.includes(q))return false;
+    if(qTerms.length){
+      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.gsm,c.gauge,c.knitter,c.dyehouse,c.yarn].join(' ').toLowerCase();
+      if(!qTerms.every(t=>hay.includes(t)))return false;
     }
     return true;
   });
@@ -1004,9 +1092,16 @@ function render(){
   const byStatus={};STATUSES.forEach(s=>byStatus[s]=0);list.forEach(c=>byStatus[c.status]=(byStatus[c.status]||0)+1);
   const totalActive=activeStatuses.size===0;
   document.getElementById('stats-row').innerHTML=`<div class="stat-card${totalActive?' active':''}" onclick="toggleAll()"><div class="stat-num">${list.length}</div><div class="stat-label">項目數</div></div>${STATUSES.filter(s=>byStatus[s]).map(s=>{const isolated=activeStatuses.size===1&&activeStatuses.has(s);return `<div class="stat-card${isolated?' active':''}" onclick="selectStatusOnly('${s}')"><div class="stat-num">${byStatus[s]}</div><div class="stat-label">${s}</div></div>`;}).join('')}`;
+  const gbSel=document.getElementById('group-by');if(gbSel&&gbSel.value!==groupBy)gbSel.value=groupBy;
+  const gTools=document.getElementById('group-tools');if(gTools)gTools.style.display=(groupBy!=='none'&&!qTerms.length)?'':'none';
   const el=document.getElementById('customer-list');
   if(!list.length){el.innerHTML='<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>沒有符合的項目</div>';return;}
-  el.innerHTML=list.map(c=>{
+  // while searching, groups auto-expand so matches are never hidden
+  el.innerHTML=groupBy==='none'?list.map(cardHTML).join(''):buildGroupedHTML(list,qTerms.length>0);
+  list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
+}
+
+function cardHTML(c){
     const[abg,atxt]=avatarColors(c.brand),isOpen=openCardId===c.id,latestLog=c.logs&&c.logs.length?c.logs[0]:null,followup=hasFollowupToday(c);
     const sc=statusColor(c.status);
     const pc=c.priority?priorityColor(c.priority):null;
@@ -1014,8 +1109,6 @@ function render(){
     const dueSoon=!overdue&&isDueSoon(c);
     const lockIcon=canEdit(c)?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
     return`<div class="customer-card${followup?' has-followup':''}${overdue?' is-overdue':''}${dueSoon?' is-due-soon':''}" id="card-${c.id}"><div class="card-header" onclick="toggleCard('${c.id}')">${canCompare(currentUserEmail)?`<label class="compare-checkbox-wrap" onclick="event.stopPropagation()" title="加入比較"><input type="checkbox" id="compare-chk-${c.id}" ${compareSelected.has(c.id)?'checked':''} onchange="toggleCompareSelect('${c.id}',event)"></label>`:''}<div class="avatar" style="background:${abg};color:${atxt}">${(c.brand||'—').slice(0,2)}${followup?'<span class="avatar-dot"></span>':''}</div><div class="card-meta"><div class="card-name">${c.article||'—'}</div><div class="card-company">${c.brand}</div>${latestLog?`<div class="card-log-preview${followup&&logMatchesToday(latestLog.text)?' urgent':''}"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${latestLog.text}</div>`:''}</div><div class="card-right"><div class="card-badges"><span class="badge" style="background:${sc.bg};color:${sc.fg}">${c.status}</span>${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${c.priority}</span>`:''}</div><span class="card-last${overdue?' overdue-text':''}${dueSoon?' due-soon-text':''}">${overdue?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${dueSoon?'<i class="ti ti-clock" style="font-size:12px;vertical-align:-1px;margin-right:2px"></i>':''}${c.dueDate||''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body" id="body-${c.id}"></div></div>`;
-  }).join('');
-  list.forEach(c=>{if(openCardId===c.id)renderCardBody(c.id);});
 }
 
 /* ────────────────────────────────────────────────────────────
