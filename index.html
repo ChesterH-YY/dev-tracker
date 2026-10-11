@@ -537,6 +537,8 @@ const PRIORITY_COLORS={
   '低':{bg:'#F1EFE8',fg:'#444441',border:'#5F5E5A'}
 };
 const DEV_TYPES=['客指開發','自主開發','概念驗證','Sourcing'];
+// Brands always offered in the 新增項目 brand dropdown, even before any item uses them
+const PRESET_BRANDS=['5.11 Tactical'];
 const DEV_TYPE_COLORS={
   '客指開發':{bg:'#E6F1FB',fg:'#0C447C',border:'#185FA5'},
   '自主開發':{bg:'#EAF3DE',fg:'#27500A',border:'#3B6D11'},
@@ -684,7 +686,8 @@ function buildBrandOptions(){
   sel.innerHTML='<option value="">全部品牌</option>'+brands.map(b=>`<option value="${b}">${b}</option>`).join('');
   sel.value=brands.includes(current)?current:'';
   const dl=document.getElementById('brand-datalist');
-  if(dl)dl.innerHTML=brands.map(b=>`<option value="${b}">`).join('');
+  const dlBrands=[...new Set([...brands,...PRESET_BRANDS])].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  if(dl)dl.innerHTML=dlBrands.map(b=>`<option value="${b}">`).join('');
 }
 
 function displayName(email){return USER_NAMES[email]||email||'';}
