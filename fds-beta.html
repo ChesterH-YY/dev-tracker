@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>FDS 產生器（測試版）</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --color-text-primary: #1a1a1a;
+  --color-text-secondary: #555;
+  --color-text-tertiary: #999;
+  --color-background-primary: #fff;
+  --color-background-secondary: #f5f5f4;
+  --color-border-tertiary: #e5e5e4;
+  --color-border-secondary: #ccc;
+  --border-radius-md: 8px;
+  --border-radius-lg: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text-primary: #f0f0f0;
+    --color-text-secondary: #aaa;
+    --color-text-tertiary: #666;
+    --color-background-primary: #1c1c1e;
+    --color-background-secondary: #2c2c2e;
+    --color-border-tertiary: #3a3a3c;
+    --color-border-secondary: #555;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);min-height:100vh;}
+.page{max-width:780px;margin:0 auto;padding:1.5rem 1rem;}
+.crm-wrap{padding:1rem 0;}
+.top-bar{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;padding-right:144px;position:relative;}
+.top-bar h2{font-size:18px;font-weight:500;color:var(--color-text-primary);flex:1;}
+.btn-add{display:flex;align-items:center;gap:5px;padding:7px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.btn-add:hover{background:var(--color-background-secondary);}
+.btn-io{display:flex;align-items:center;gap:4px;padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);font-size:13px;cursor:pointer;}
+.btn-io:hover{background:var(--color-background-secondary);}
+.btn-io-export{border-color:var(--color-border-tertiary);}
+.btn-io-import{border-color:var(--color-border-tertiary);}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 20px;border-radius:99px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
+.toast.show{opacity:1;}
+.search-bar{padding:8px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);width:168px;}
+.filter-section{margin-bottom:1.25rem;margin-top:14px;}
+.filter-group{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
+.filter-group-label{font-size:12px;color:var(--color-text-secondary);min-width:56px;}
+.filter-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:11px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);transition:all .12s;user-select:none;}
+.filter-chip .dot{width:7px;height:7px;border-radius:50%;border:1.5px solid currentColor;flex-shrink:0;}
+.filter-chip.checked .dot{background:currentColor;}
+.chip-all.checked{background:#EEEDFE;color:#3C3489;border-color:#3C3489;}
+#status-chips,#priority-chips,#devtype-chips,#duerange-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+#status-filter-group{flex-wrap:nowrap;}
+#status-filter-group .filter-group-label,#status-filter-group #chip-all{flex-shrink:0;}
+#status-chips{flex:1 1 0%;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:3px;}
+#status-chips .filter-chip{flex-shrink:0;}
+#status-chips::-webkit-scrollbar{height:4px;}
+#status-chips::-webkit-scrollbar-thumb{background:var(--color-border-tertiary);border-radius:2px;}
+#status-chips::-webkit-scrollbar-track{background:transparent;}
+.mini-select{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-secondary);}
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:1.25rem;}
+.stat-card{background:var(--color-background-primary);border-radius:var(--border-radius-md);padding:10px 12px;text-align:center;border:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:border-color .12s,background .12s;}
+.stat-card:hover{border-color:#3C3489;}
+.stat-card.active{background:#EEEDFE;border-color:#3C3489;}
+.stat-card.active .stat-num,.stat-card.active .stat-label{color:#3C3489;}
+.stat-num{font-size:19px;font-weight:500;color:var(--color-text-primary);}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.customer-list{display:flex;flex-direction:column;gap:10px;}
+.customer-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;}
+.group-block{display:flex;flex-direction:column;gap:8px;}
+.group-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);cursor:pointer;user-select:none;}
+.group-header:hover{border-color:#3C3489;}
+.group-block.open>.group-header{background:#EEEDFE;border-color:#3C3489;}
+.group-title{font-weight:600;font-size:14px;color:var(--color-text-primary);}
+.group-block.ungrouped .group-title{color:var(--color-text-secondary);font-weight:500;}
+.group-count{font-size:12px;font-weight:500;color:#3C3489;background:#EEEDFE;border-radius:99px;padding:1px 8px;}
+.group-block.open .group-count{background:#fff;}
+.group-meta{font-size:12px;color:var(--color-text-secondary);}
+.group-overdue{font-size:12px;color:#B3261E;font-weight:600;}
+.group-spacer{flex:1;}
+.group-body{display:flex;flex-direction:column;gap:8px;margin-left:12px;padding-left:12px;border-left:2px solid #C9C6F0;}
+.group-tools{font-size:12px;color:#3C3489;cursor:pointer;padding:3px 6px;}
+.group-tools:hover{text-decoration:underline;}
+.customer-card.has-followup{border-color:#E05252;}
+.customer-card.is-overdue{border-left:3px solid #B3261E;}
+.customer-card.is-due-soon{border-left:3px solid #E65100;}
+.card-header{display:flex;align-items:center;gap:10px;padding:.9rem 1.25rem;cursor:pointer;user-select:none;}
+.card-header:hover{background:var(--color-background-secondary);}
+.avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;flex-shrink:0;position:relative;}
+.avatar-dot{position:absolute;top:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:#E05252;border:2px solid var(--color-background-primary);}
+.card-meta{flex:1;min-width:0;}
+.card-name{font-size:15px;font-weight:500;color:var(--color-text-primary);}
+.card-company{font-size:12px;color:var(--color-text-secondary);}
+.card-log-preview{font-size:12.5px;color:var(--color-text-secondary);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px;line-height:1.35;}
+.card-log-preview.urgent{color:#C0392B;font-weight:500;}
+.card-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.card-badges{display:flex;gap:5px;align-items:center;}
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:500;white-space:nowrap;}
+.card-last{font-size:11px;color:var(--color-text-tertiary);}
+.card-last.overdue-text{color:#B3261E;font-weight:600;}
+.card-last.due-soon-text{color:#E65100;font-weight:600;}
+.card-body{display:none;border-top:0.5px solid var(--color-border-tertiary);padding:1rem 1.25rem;}
+.card-body.open{display:block;}
+.section-label{font-size:12px;color:var(--color-text-secondary);font-weight:500;margin-bottom:8px;margin-top:14px;}
+.section-label:first-child{margin-top:0;}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:6px;font-size:13px;}
+.info-item{color:var(--color-text-secondary);}
+.info-item strong{color:var(--color-text-primary);font-weight:500;}
+.info-item-block{color:var(--color-text-secondary);margin-bottom:6px;line-height:1.5;font-size:12px;}
+.info-item-block strong{color:var(--color-text-primary);font-weight:500;display:block;margin-top:2px;font-size:12px;}
+.status-grid{display:flex;gap:6px;flex-wrap:wrap;}
+.status-btn,.priority-btn{padding:4px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;background:var(--color-background-secondary);color:var(--color-text-secondary);transition:all .12s;}
+.status-btn.sel,.priority-btn.sel{border-color:transparent;font-weight:500;}
+.log-entry{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:8px;background:var(--color-background-secondary);}
+.log-entry.today-followup{border-color:#E05252;background:#FFF5F5;}
+.log-view{display:flex;gap:10px;align-items:flex-start;}
+.log-date-badge{font-size:12px;color:var(--color-text-secondary);white-space:nowrap;padding-top:2px;min-width:82px;display:flex;align-items:center;gap:4px;}
+.log-date-badge .red-dot{width:7px;height:7px;border-radius:50%;background:#E05252;flex-shrink:0;display:inline-block;}
+.log-text-display{flex:1;font-size:14px;color:var(--color-text-primary);line-height:1.6;word-break:break-word;}
+.log-actions{display:flex;gap:4px;flex-shrink:0;}
+.log-icon-btn{background:none;border:none;cursor:pointer;padding:2px 4px;border-radius:4px;font-size:15px;color:var(--color-text-tertiary);line-height:1;}
+.log-icon-btn:hover{color:var(--color-text-primary);}
+.log-icon-btn.del:hover{color:#A32D2D;}
+.log-edit-form{display:none;margin-top:8px;}
+.log-edit-form.open{display:block;}
+.log-edit-textarea{width:100%;padding:7px 10px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);resize:vertical;min-height:60px;font-family:var(--font-sans);}
+.log-edit-date{padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);}
+.log-edit-row{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.btn-save-log{padding:5px 14px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:12px;cursor:pointer;font-weight:500;}
+.btn-cancel-log{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;}
+.add-log-row{display:flex;gap:8px;margin-top:8px;}
+.log-input{flex:1;padding:7px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.btn-log{padding:7px 14px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);font-size:13px;cursor:pointer;background:var(--color-background-primary);color:var(--color-text-primary);}
+.btn-log:hover{background:var(--color-background-secondary);}
+.log-hint{font-size:11px;color:var(--color-text-tertiary);margin-top:5px;}
+.btn-log-toggle{display:block;width:100%;text-align:center;padding:7px;border:0.5px dashed var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:12px;cursor:pointer;margin-bottom:8px;}
+.btn-log-toggle:hover{background:var(--color-background-secondary);}
+.card-footer{display:flex;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);gap:6px;}
+.btn-edit-c{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-secondary);}
+.btn-edit-c:hover{background:var(--color-background-secondary);}
+.btn-del-c{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:12px;cursor:pointer;background:transparent;color:var(--color-text-tertiary);}
+.btn-del-c:hover{color:#A32D2D;border-color:#A32D2D;}
+.empty{text-align:center;padding:3rem;color:var(--color-text-tertiary);font-size:14px;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:100;}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:1.5rem;width:380px;max-width:92vw;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:16px;font-weight:500;margin-bottom:1rem;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:12px;color:var(--color-text-secondary);margin-bottom:4px;}
+.field input,.field select,.field textarea{width:100%;padding:8px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-secondary);color:var(--color-text-primary);font-family:var(--font-sans);}
+.field textarea{resize:vertical;min-height:52px;line-height:1.5;}
+.calc-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1.25rem;max-width:480px;}
+.calc-card h3{margin:0 0 1rem;font-size:15px;}
+.calc-result{margin-top:10px;padding:10px 12px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);font-size:13px;line-height:1.7;color:var(--color-text-primary);}
+.calc-process-row{display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 0;border-bottom:0.5px solid var(--color-border-tertiary);}
+.calc-process-row:last-child{border-bottom:none;}
+.calc-process-row span{flex:1;}
+.calc-process-row input[type=number]{width:56px;padding:4px 6px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.dash-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1.25rem;margin-bottom:1.25rem;max-width:640px;}
+.dash-card h3{margin:0 0 1rem;font-size:15px;}
+.dash-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;}
+.dash-stat{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px;text-align:center;}
+.dash-stat .num{font-size:22px;font-weight:600;}
+.dash-stat .lbl{font-size:12px;color:var(--color-text-secondary);margin-top:2px;}
+.dash-bar-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;}
+.dash-bar-label{width:100px;flex-shrink:0;color:var(--color-text-secondary);}
+.dash-bar-track{flex:1;height:8px;border-radius:4px;background:var(--color-background-secondary);overflow:hidden;}
+.dash-bar-fill{height:100%;border-radius:4px;}
+.dash-bar-count{width:32px;text-align:right;flex-shrink:0;font-weight:500;}
+.dash-list-row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;}
+.dash-list-row:last-child{border-bottom:none;}
+.dash-list-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.dash-list-title{font-weight:500;}
+.dash-list-meta{font-size:12px;color:var(--color-text-secondary);}
+.dash-list-note{flex-shrink:0;white-space:nowrap;padding-top:1px;}
+.dash-empty{color:var(--color-text-tertiary);font-size:13px;padding:8px 0;}
+.dash-toggle{color:#3C3489;font-size:12.5px;padding:8px 0 2px;cursor:pointer;font-weight:500;}
+.dash-toggle:hover{text-decoration:underline;}
+.due-custom-panel{display:none;align-items:center;gap:6px;font-size:12.5px;color:var(--color-text-secondary);}
+.due-custom-panel input[type=date]{padding:4px 6px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:12.5px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.status-suggest-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 14px;border-radius:12px;z-index:1000;display:flex;align-items:center;gap:10px;box-shadow:0 4px 16px rgba(0,0,0,.25);max-width:90vw;}
+.btn-suggest-yes{background:#5B8DEF;color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;font-weight:500;flex-shrink:0;}
+.btn-suggest-no{background:transparent;color:#c7c7c7;border:0.5px solid #444;border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer;flex-shrink:0;}
+.compare-checkbox-wrap{display:flex;align-items:center;margin-right:8px;flex-shrink:0;}
+.compare-checkbox-wrap input{width:16px;height:16px;cursor:pointer;}
+.compare-float-btn{position:fixed;bottom:24px;right:24px;background:#3C3489;color:#EEEDFE;font-size:13.5px;font-weight:500;padding:11px 18px;border-radius:99px;z-index:998;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.25);display:flex;align-items:center;gap:6px;}
+.compare-float-btn:hover{background:#2E2870;}
+.compare-modal{width:auto;max-width:94vw;}
+.compare-table{border-collapse:collapse;width:100%;font-size:13px;}
+.compare-table th,.compare-table td{border:0.5px solid var(--color-border-tertiary);padding:8px 10px;text-align:left;vertical-align:top;}
+.compare-table th{background:var(--color-background-secondary);white-space:nowrap;}
+.compare-row-label{font-weight:500;color:var(--color-text-secondary);white-space:nowrap;background:var(--color-background-secondary);}
+.compare-match{background:#DCEFE0;color:#1F6D3A;font-weight:500;}
+.modal-btns{display:flex;gap:8px;margin-top:1.25rem;}
+.btn-confirm{flex:1;padding:9px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#EEEDFE;font-size:14px;cursor:pointer;font-weight:500;}
+.btn-cancel{flex:1;padding:9px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.divider{height:0.5px;background:var(--color-border-tertiary);margin:14px 0;}
+.auth-screen{display:none;min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;gap:14px;}
+.auth-screen h2{font-size:20px;font-weight:500;color:var(--color-text-primary);}
+.auth-screen p{font-size:14px;color:var(--color-text-secondary);max-width:320px;line-height:1.6;}
+.btn-google{display:flex;align-items:center;gap:10px;padding:10px 20px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
+.btn-google:hover{background:var(--color-background-secondary);}
+.user-bar{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-secondary);position:absolute;top:50%;right:0;transform:translateY(-50%);}
+.btn-signout{padding:5px 9px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:11.5px;cursor:pointer;white-space:nowrap;}
+.btn-signout:hover{background:var(--color-background-secondary);}
+
+/* ─── Mobile responsive ─── */
+@media (max-width: 640px) {
+  input, select, textarea { font-size: 16px !important; }
+  .page{padding:1rem 0.75rem;}
+  .top-bar{gap:8px;padding-right:0;}
+  .top-bar h2{font-size:16px;width:100%;}
+  .search-bar{flex:1;min-width:0;width:auto;}
+  .btn-io span,.btn-io{font-size:12px;padding:7px 10px;}
+  .btn-add{padding:7px 12px;font-size:13px;}
+  .user-bar{position:static;width:100%;justify-content:flex-end;margin-top:4px;}
+  .filter-group{gap:6px;}
+  .filter-group-label{width:100%;min-width:0;margin-bottom:2px;}
+  .filter-chip{font-size:11px;padding:3px 8px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);gap:6px;}
+  .stat-card{padding:8px 8px;}
+  .stat-num{font-size:16px;}
+  .card-header{padding:.8rem 1rem;flex-wrap:wrap;}
+  .card-meta{min-width:0;flex-basis:calc(100% - 46px);}
+  .card-log-preview{font-size:12px;max-width:100%;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .card-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%;margin-top:6px;flex-wrap:wrap;gap:6px;}
+  .card-body{padding:0.85rem 1rem;}
+  .info-grid{grid-template-columns:1fr;}
+  .status-grid{gap:5px;}
+  .status-btn,.priority-btn{font-size:11px;padding:4px 10px;}
+  .log-text-display{font-size:14px;}
+  .log-date-badge{min-width:64px;font-size:11px;}
+  .add-log-row{flex-direction:column;}
+  .btn-log{width:100%;}
+  .modal{width:92vw;padding:1.25rem;}
+  .card-footer{flex-wrap:wrap;}
+}
+@media (max-width: 400px) {
+  .stats-row{grid-template-columns:repeat(2,1fr);}
+  .card-log-preview{font-size:12px;}
+  .card-name{font-size:14px;}
+}
+/* Larger tap targets on touch devices */
+@media (pointer: coarse) {
+  .status-btn,.priority-btn,.filter-chip{min-height:32px;display:inline-flex;align-items:center;}
+  .log-icon-btn{padding:6px 8px;font-size:18px;}
+  input[type="checkbox"]{width:18px;height:18px;}
+}
+.view-tabs{display:flex;gap:4px;padding:0 1.5rem;margin-top:10px;border-bottom:0.5px solid var(--color-border-secondary);}
+.view-tab{border:none;background:none;padding:9px 14px;font-size:14px;font-weight:500;color:var(--color-text-tertiary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.view-tab.active{color:var(--color-text-primary);border-bottom-color:var(--color-text-primary);}
+/* ─── FDS 產生器 ─── */
+.beta-tag{font-size:11px;font-weight:500;background:#FAEEDA;color:#633806;border-radius:99px;padding:2px 8px;vertical-align:3px;margin-left:4px;}
+a.btn-io{text-decoration:none;}
+.demo-banner{display:flex;align-items:center;gap:6px;font-size:12.5px;background:#FAEEDA;color:#633806;border:0.5px solid #854F0B;border-radius:var(--border-radius-md);padding:8px 12px;margin-bottom:12px;}
+.view{padding-top:14px;}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.tb-spacer{flex:1;}
+.hint{font-size:12px;color:var(--color-text-secondary);margin:6px 0 12px;line-height:1.55;}
+.muted{color:var(--color-text-secondary);font-size:12px;}
+.modal.wide{width:760px;}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
+.fgrid .span2{grid-column:1 / -1;}
+.field input.is-empty,.field textarea.is-empty,.field select.is-empty{border-color:#D97B7B;background:rgba(224,82,82,.06);}
+.field label .muted{font-size:11px;}
+.tbl-wrap{overflow:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:8px;}
+.grid-table{border-collapse:collapse;width:100%;font-size:12.5px;}
+.grid-table th,.grid-table td{border-bottom:0.5px solid var(--color-border-tertiary);padding:5px 6px;text-align:left;vertical-align:middle;}
+.grid-table th{background:var(--color-background-secondary);font-weight:500;color:var(--color-text-secondary);white-space:nowrap;position:sticky;top:0;}
+.grid-table td.rl{white-space:nowrap;color:var(--color-text-secondary);}
+.grid-table td.val{white-space:pre-wrap;word-break:break-word;}
+.grid-table td.lbl{color:var(--color-text-tertiary);font-size:11.5px;}
+.grid-table input{width:100%;min-width:70px;padding:5px 7px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:12.5px;background:var(--color-background-secondary);color:var(--color-text-primary);}
+.map-table input{min-width:130px;font-family:ui-monospace,Menlo,monospace;}
+.unmapped-row td.rl{color:var(--color-text-tertiary);}
+.map-group{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);margin-bottom:8px;overflow:hidden;}
+.map-group summary{cursor:pointer;padding:8px 12px;font-size:13px;font-weight:500;background:var(--color-background-secondary);display:flex;justify-content:space-between;}
+.map-count{font-weight:400;color:var(--color-text-secondary);font-size:12px;}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px;}
+.chip-plain{font-size:11.5px;padding:3px 9px;border-radius:99px;background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);}
+.gen-card{max-width:none;}
+.gen-select{width:100%;padding:8px 12px;font-size:14px;border-radius:var(--border-radius-md);}
+.picker{max-height:240px;overflow:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);}
+.pick-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;cursor:pointer;}
+label.pick-row{justify-content:flex-start;}
+.pick-row:last-child{border-bottom:none;}
+.pick-row:hover{background:var(--color-background-secondary);}
+.gen-card textarea{min-height:36px;resize:vertical;}
+.gen-actions{display:flex;justify-content:flex-end;margin:4px 0 2rem;}
+.gen-actions .btn-confirm{flex:0 0 auto;padding:10px 22px;}
+.btn-confirm:disabled{opacity:.45;cursor:not-allowed;}
+.issues{margin-top:10px;padding:10px 12px;border-radius:var(--border-radius-md);background:var(--color-background-secondary);font-size:12.5px;}
+.issues.ok{color:#1F6D3A;background:#DCEFE0;}
+.issue-title{font-weight:500;margin:4px 0;}
+.issue-title.warn{color:#8C1D18;}
+.issue-title.missing{color:#633806;margin-top:8px;}
+.issue-title a{font-weight:400;color:#3C3489;margin-left:6px;}
+.issue.warn{padding:3px 0 3px 18px;color:var(--color-text-primary);position:relative;line-height:1.5;}
+.issue.warn::before{content:"";position:absolute;left:5px;top:10px;width:6px;height:6px;border-radius:50%;background:#B3261E;}
+.log-table td{font-size:12.5px;}
+@media (max-width:640px){.view-tabs{padding:0;overflow-x:auto;}.view-tab{white-space:nowrap;padding:9px 10px;font-size:13px;}.toolbar .search-bar{flex:1 1 100%;}.fgrid{grid-template-columns:1fr;}.modal.wide{width:94vw;}.toolbar .btn-io,.toolbar .btn-add{flex:1 1 auto;justify-content:center;}}
+</style>
+</head>
+<body>
+<div id="login-screen" class="auth-screen">
+  <i class="ti ti-lock" style="font-size:40px;color:var(--color-text-tertiary)"></i>
+  <h2>FDS 產生器（測試版）</h2>
+  <p>請使用與 Development Tracker 相同的 Google 帳號登入</p>
+  <button class="btn-google" onclick="signInWithGoogle()"><i class="ti ti-brand-google"></i> 使用 Google 登入</button>
+</div>
+
+<div id="unauthorized-screen" class="auth-screen">
+  <i class="ti ti-shield-x" style="font-size:40px;color:#A32D2D"></i>
+  <h2>沒有存取權限</h2>
+  <p>你的帳號（<span id="unauthorized-email"></span>）不在授權名單內，請聯絡管理員新增權限。</p>
+  <button class="btn-signout" onclick="signOutUser()">登出，改用其他帳號</button>
+</div>
+
+<div class="page" id="app-page" style="display:none">
+<div class="crm-wrap">
+<div id="demo-banner" class="demo-banner" style="display:none"><i class="ti ti-flask"></i> 示範模式：資料只存在這個分頁，重新整理就會清空，不會寫入正式資料庫。</div>
+<div class="top-bar">
+  <h2><i class="ti ti-file-spreadsheet" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>FDS 產生器 <span class="beta-tag">測試版</span></h2>
+  <a class="btn-io" href="./" title="回 Development Tracker"><i class="ti ti-arrow-left"></i> Tracker</a>
+  <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
+</div>
+<div id="toast" class="toast"></div>
+<div class="view-tabs">
+  <button class="view-tab active" id="tab-articles" onclick="switchView('articles')">品號主檔</button>
+  <button class="view-tab" id="tab-generate" onclick="switchView('generate')">產生 FDS</button>
+  <button class="view-tab" id="tab-logs" onclick="switchView('logs')">送出紀錄</button>
+  <button class="view-tab" id="tab-templates" onclick="switchView('templates')">客戶格式</button>
+</div>
+
+<!-- 品號主檔 -->
+<div id="articles-view" class="view">
+  <div class="toolbar">
+    <input class="search-bar" id="art-search" type="text" placeholder="搜尋品號 / 成分 / 紗商…" oninput="renderArticles()">
+    <span class="tb-spacer"></span>
+    <button class="btn-io edit-only" onclick="openImportModal()"><i class="ti ti-file-import"></i> 從已填 FDS 匯入</button>
+    <button class="btn-io edit-only" onclick="openDevPickModal()"><i class="ti ti-clipboard-list"></i> 從開發項目帶入</button>
+    <button class="btn-add edit-only" onclick="openArticleModal()"><i class="ti ti-plus"></i> 新增品號</button>
+  </div>
+  <div class="hint">主檔只放規格與測試資料；價格、MOQ、交期依客戶不同，在「產生 FDS」分頁填寫。紅框＝尚未填寫。</div>
+  <div class="customer-list" id="article-list"></div>
+</div>
+
+<!-- 產生 FDS -->
+<div id="generate-view" class="view" style="display:none">
+  <div class="calc-card gen-card">
+    <h3>1. 選擇客戶格式</h3>
+    <select class="mini-select gen-select" id="gen-tpl" onchange="onGenTemplateChange()"></select>
+    <div class="hint" id="gen-tpl-hint"></div>
+  </div>
+  <div class="calc-card gen-card">
+    <h3>2. 選擇品號</h3>
+    <input class="search-bar" id="gen-search" type="text" placeholder="搜尋品號…" oninput="renderGenPicker()" style="width:100%;margin-bottom:8px">
+    <div id="gen-picker" class="picker"></div>
+  </div>
+  <div id="gen-items"></div>
+  <div class="gen-actions">
+    <button class="btn-confirm" id="btn-generate" onclick="generateSelected()"><i class="ti ti-download"></i> 產生並下載</button>
+  </div>
+</div>
+
+<!-- 送出紀錄 -->
+<div id="logs-view" class="view" style="display:none">
+  <div class="hint">每次產生 FDS 都會自動留下一筆紀錄。</div>
+  <div id="log-list"></div>
+</div>
+
+<!-- 客戶格式 -->
+<div id="templates-view" class="view" style="display:none">
+  <div class="toolbar">
+    <span class="hint" style="margin:0;flex:1">每家客戶（品牌或成衣廠）的 FDS 格式。上傳空白表後，系統會自動辨識每個欄位該填在哪一格。</span>
+    <button class="btn-add admin-only" onclick="openTemplateModal()"><i class="ti ti-plus"></i> 新增客戶格式</button>
+  </div>
+  <div class="customer-list" id="template-list"></div>
+</div>
+</div>
+</div>
+
+<!-- 品號編輯 -->
+<div class="modal-bg" id="art-modal-bg" style="display:none">
+  <div class="modal wide">
+    <h3 id="art-modal-title">新增品號</h3>
+    <div class="field"><label>工廠品號 *</label><input id="art-no" placeholder="例如 KP-L75B-21"></div>
+    <div id="art-source" class="hint"></div>
+    <div id="art-form"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeArticleModal()">取消</button>
+      <button class="btn-del-c" id="art-del" onclick="deleteArticle()" style="flex:0 0 auto">刪除</button>
+      <button class="btn-confirm" id="art-save" onclick="saveArticle()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 客戶格式 -->
+<div class="modal-bg" id="tpl-modal-bg" style="display:none">
+  <div class="modal wide">
+    <h3 id="tpl-modal-title">新增客戶格式</h3>
+    <div class="fgrid">
+      <div class="field"><label>格式名稱 *</label><input id="tpl-name" placeholder="例如 Oner Active FDS V2 (May 2026)"></div>
+      <div class="field"><label>客戶名稱 *（報價條件依此區分）</label><input id="tpl-client" placeholder="例如 Oner Active"></div>
+    </div>
+    <div class="field"><label id="tpl-file-label">空白 FDS 範本（.xlsx）*</label><input type="file" id="tpl-file" accept=".xlsx" onchange="onTemplateFile(event)"></div>
+    <div id="tpl-map"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeTemplateModal()">取消</button>
+      <button class="btn-confirm" id="tpl-save" onclick="saveTemplate()">儲存格式</button>
+    </div>
+  </div>
+</div>
+
+<!-- 從已填 FDS 匯入 -->
+<div class="modal-bg" id="imp-modal-bg" style="display:none">
+  <div class="modal wide">
+    <h3>從已填 FDS 匯入</h3>
+    <div class="hint" style="margin-top:0">選擇這份 FDS 的格式，上傳已填好的檔案，系統會把內容讀進品號主檔與該客戶的報價條件。</div>
+    <div class="fgrid">
+      <div class="field"><label>FDS 格式</label><select id="imp-tpl"></select></div>
+      <div class="field"><label>已填好的 FDS（.xlsx）</label><input type="file" id="imp-file" accept=".xlsx" onchange="onImportFile(event)"></div>
+    </div>
+    <div id="imp-preview"></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeImportModal()">取消</button>
+      <button class="btn-confirm" id="imp-save" onclick="confirmImport()" disabled>確認匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 從開發項目帶入 -->
+<div class="modal-bg" id="dev-modal-bg" style="display:none">
+  <div class="modal wide">
+    <h3>從開發項目帶入</h3>
+    <div class="hint" style="margin-top:0">選一筆 Development Tracker 的開發項目，帶入 Article#、幅寬、克重、針數，其餘再補。</div>
+    <input class="search-bar" id="dev-search" placeholder="搜尋品牌 / Article / Family…" oninput="renderDevPick()" style="width:100%;margin-bottom:8px">
+    <div id="dev-list" class="picker" style="max-height:360px"></div>
+    <div class="modal-btns"><button class="btn-cancel" onclick="closeDevPickModal()">關閉</button></div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════
+   FDS 核心邏輯：欄位字典、自動對應、匯入、填表、檢查
+   （不碰畫面與資料庫，方便單獨測試）
+   ════════════════════════════════════════════════════════════ */
+const FDS = (function(){
+  // syn：標籤比對詞；「&」表示同時要有；英文以字詞比對（最後一個字可前綴），中文以子字串比對
+  // not：標籤若含這些字詞則不比對；cat：分類；type：date / num / text
+  const F = [];
+  function add(key,label,cat,syn,opt){F.push(Object.assign({key,label,cat,syn:syn||[]},opt||{}));}
+
+  add('client_code','客戶自編代碼','商務',['oner active code','customer code','client code','buyer code','brand code','客戶編號','客戶代碼']);
+  add('article_no','工廠品號','基本',['mill ref','mill article','supplier ref','vendor ref','fabric ref','article no','article number','工廠品號','品號'],{not:['code']});
+  add('mill_name','工廠名稱','基本',['fabric mill','mill name','supplier name','vendor name','布廠','工廠名稱'],{not:['ref','address','contact']});
+  add('contact_name','聯絡窗口','基本',['contact name','contact person','聯絡人','聯絡窗口']);
+  add('contact_email','聯絡 Email','基本',['email','e mail','電子郵件']);
+  add('mill_address','工廠地址','基本',['mill address','address','地址']);
+  add('cs_seamless','裁剪 / 無縫','基本',['seamless','cut sew','cut and sew']);
+  add('coo','布料產地','基本',['country of origin','origin','made in','產地'],{not:['yarn']});
+  add('fds_date','FDS 送出日期','自動',['submit date','fds date','issue date','填表日期'],{type:'date',auto:true});
+  add('price','單價','商務',['unit price','fabric price','price','單價','價格'],{not:['valid','surcharge','until']});
+  add('price_valid','報價有效期','商務',['price valid','valid until','validity','有效期'],{type:'date'});
+  add('sample_moq','樣布 MOQ / MCQ','商務',['sample moq','sample mcq','sample minimum','樣布最低'],{not:['surcharge','lead']});
+  add('sample_surcharge','樣布未達量加價','商務',['sample&surcharge','sample&upcharge','樣布&加價']);
+  add('bulk_moq','大貨 MOQ / MCQ','商務',['bulk moq','bulk mcq','production moq','bulk minimum','大貨最低'],{not:['surcharge','lead']});
+  add('bulk_surcharge','大貨未達量加價','商務',['bulk&surcharge','bulk&upcharge','production&surcharge','大貨&加價']);
+  add('sample_lt','樣布交期','商務',['sample lead time','sample lt','sample delivery','樣布交期']);
+  add('bulk_lt','大貨交期','商務',['bulk lead time','production lead time','bulk lt','bulk delivery','大貨交期']);
+  add('greige_avail','有無胚布庫存','商務',['greige avail','greige stock','胚布']);
+  add('sy_avail','可提供樣碼','商務',['s y avail','sample yardage','sample yard','樣碼']);
+  add('composition','成分','規格',['fibre composition','fiber composition','fabric composition','composition','fibre content','fiber content','content','成分'],{not:['yarn']});
+  add('weight_gsm','克重','規格',['weight','gsm','g m2','克重']);
+  add('construction','組織大類','規格',['fabric construction','construction','knit woven','結構']);
+  add('width_in','幅寬 (inch)','規格',['width&inch','width&in','width','幅寬']);
+  add('width_cm','幅寬 (cm)','規格',['width&cm','幅寬&cm']);
+  add('structure','組織名稱','規格',['fabric structure','structure','knit type','組織']);
+  add('shrinkage','縮率','規格',['shrinkage','縮率']);
+  add('dye_method','染色方式','規格',['dyeing method','dye method','dyeing process','染色方式']);
+  add('dye_type','染料種類','規格',['dye type','dyestuff','dye class','染料']);
+  add('print_method','印花方式','規格',['printing','print method','印花']);
+  add('coating','塗層','規格',['coating','塗層']);
+  add('mech_finish','物理加工','規格',['mechanical finish','mech finish','physical finish','物理加工']);
+  add('lamination','貼合','規格',['lamination','laminat','bonding','貼合']);
+  add('chem_finish','化學加工','規格',['chemical finish','chem finish','finishing','finish','化學加工','後加工'],{not:['mechanical','mech','physical']});
+  add('attribute','功能特性','規格',['attribute','function','performance claim','功能']);
+  add('wash_care','建議洗標','規格',['wash care','care instruction','care label','washing instruction','洗標','洗滌']);
+  add('machine_dia','針筒直徑','針織參數',['machine diameter','machine dia','cylinder','針筒']);
+  add('gauge','針距','針織參數',['gauge','針距','針數']);
+  add('cpi','Courses / inch','針織參數',['courses','cpi','橫密']);
+  add('wpi','Wales / inch','針織參數',['wales','wpi','縱密']);
+  add('epi','Ends / inch','梭織參數',['ends','epi','warp density','經密']);
+  add('ppi','Picks / inch','梭織參數',['picks','ppi','weft density','緯密']);
+
+  const YARN_COLS=[
+    ['pct','比例 %',['composition','content','ratio','percent','比例']],
+    ['count','紗支',['yarn count','count','denier','紗支']],
+    ['loc','使用位置',['yarn location','location','position','位置']],
+    ['spin','紡紗 / 撚紗方式',['spinning','spining','twisting','twist','紡紗']],
+    ['luster','光澤',['luster','lustre','光澤']],
+    ['supplier','紗商',['yarn supplier','supplier','紗商']],
+    ['coo','紗產地',['coo','origin','country','產地']]
+  ];
+  for(let i=1;i<=4;i++)YARN_COLS.forEach(([k,zh,cs])=>add('yarn'+i+'_'+k,'紗 '+i+' '+zh,'紗線',[],{table:{row:['yarn '+i,'紗 '+i,'紗'+i],col:cs},yarn:i}));
+
+  const TESTS=[
+    ['pilling','起毛球',['pilling','起毛球']],
+    ['dim_stab','水洗尺寸安定性',['dimension','dimensional stability','尺寸安定']],
+    ['stretch','伸長回復',['stretch','elongation','recovery','伸長']],
+    ['abrasion','耐磨',['abrasion','martindale','耐磨']],
+    ['flam','燃燒性',['flammab','燃燒']],
+    ['wr','撥水',['wr','water repellen','spray','撥水']],
+    ['cf_rub','摩擦堅牢度',['dry rub','crocking','rubbing','摩擦']],
+    ['cf_wash','水洗堅牢度',['cf to wash','fastness to wash','colorfastness to wash','colourfastness to wash','水洗堅牢']],
+    ['cf_persp','汗漬堅牢度',['perspiration','sweat','汗']],
+    ['cf_water','水堅牢度',['cf to water','fastness to water','水堅牢']],
+    ['ph','pH',['ph']],
+    ['formal','甲醛',['formaldehyde','甲醛']],
+    ['azo','偶氮染料',['azo','偶氮']]
+  ];
+  TESTS.forEach(([k,zh,rs])=>{
+    add('t_'+k+'_grade',zh+' 結果','測試',[],{table:{row:rs,col:['grade','result','rating','結果']},test:k});
+    add('t_'+k+'_method',zh+' 方法','測試',[],{table:{row:rs,col:['method','test method','standard','方法']},test:k});
+  });
+  add('comments','其他備註','其他',['other comment','comment','remark','note','備註']);
+
+  const BY_KEY={};F.forEach(f=>BY_KEY[f.key]=f);
+  const COMMERCIAL=F.filter(f=>f.cat==='商務').map(f=>f.key);
+  const CATS=['基本','規格','針織參數','梭織參數','紗線','測試','其他'];
+
+  /* ── 文字處理 ── */
+  const CJK=/[㐀-鿿]/;
+  function norm(s){return String(s==null?'':s).toLowerCase().replace(/[^a-z0-9㐀-鿿]+/g,' ').trim();}
+  function toks(s){return norm(s).split(' ').filter(Boolean);}
+  function phraseHit(label,ph){ // 回傳比對長度（0 = 沒中）
+    const parts=ph.split('&');let len=0;
+    for(const p of parts){
+      if(CJK.test(p)){if(!norm(label).replace(/ /g,'').includes(p))return 0;len+=p.length*2;continue;}
+      const lt=toks(label),pt=toks(p);if(!pt.length)return 0;let ok=false;
+      for(let i=0;i+pt.length<=lt.length&&!ok;i++){
+        ok=true;
+        for(let j=0;j<pt.length;j++){
+          const a=lt[i+j],b=pt[j];
+          if(j===pt.length-1?!a.startsWith(b):a!==b){ok=false;break;}
+        }
+      }
+      if(!ok)return 0;len+=p.length;
+    }
+    return len;
+  }
+  function bestScore(label,syns,not){
+    if(not&&not.some(n=>phraseHit(label,n)))return 0;
+    let b=0;for(const s of syns){const h=phraseHit(label,s);if(h>b)b=h;}return b;
+  }
+
+  /* ── 儲存格工具 ── */
+  function colName(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
+  function cellVal(v){
+    if(v==null)return null;
+    if(v instanceof Date)return v;
+    if(typeof v==='object'){
+      if(v.richText)return v.richText.map(r=>r.text).join('');
+      if('result' in v)return cellVal(v.result);
+      if(v.text!=null)return typeof v.text==='object'?cellVal(v.text):v.text;
+      if(v.error)return null;
+    }
+    return v;
+  }
+  function isEmpty(v){v=cellVal(v);return v==null||(typeof v==='string'&&v.trim()==='');}
+  function mergeOf(ws,addr){ // 回傳該格所在合併範圍 {top,left,bottom,right}
+    const c=ws.getCell(addr);const m=c.isMerged?c.master:c;const r={top:m.row,left:m.col,bottom:m.row,right:m.col};
+    const ranges=(ws.model&&ws.model.merges)||[];
+    for(const rg of ranges){
+      const mm=rg.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);if(!mm)continue;
+      const l=colNum(mm[1]),t=+mm[2],rr=colNum(mm[3]),b=+mm[4];
+      if(t===m.row&&l===m.col)return {top:t,left:l,bottom:b,right:rr};
+    }
+    return r;
+  }
+  function colNum(s){let n=0;for(const ch of s)n=n*26+(ch.charCodeAt(0)-64);return n;}
+  function labelCells(wb){
+    const out=[];
+    wb.eachSheet(ws=>{
+      let maxCol=0;
+      ws.eachRow({includeEmpty:false},row=>row.eachCell({includeEmpty:false},c=>{if(!isEmpty(c.value)&&c.col>maxCol)maxCol=c.col;}));
+      ws.eachRow({includeEmpty:false},row=>row.eachCell({includeEmpty:false},c=>{
+        if(c.isMerged&&c.master.address!==c.address)return;
+        const v=cellVal(c.value);
+        if(typeof v==='string'&&/[a-zA-Z㐀-鿿]/.test(v))out.push({ws,sheet:ws.name,addr:c.address,row:c.row,col:c.col,text:v.trim(),maxCol});
+      }));
+    });
+    return out;
+  }
+
+  /* ── 自動對應：讀空白範本的標籤，推測每個欄位該填在哪一格 ── */
+  function autoMap(wb){
+    const labels=labelCells(wb);
+    const mapping={};const used=new Set();
+    // 1) 表格型欄位（紗線、測試）：列標籤 × 上方最近的欄標題
+    const tableFields=F.filter(f=>f.table);
+    for(const f of tableFields){
+      let best=null;
+      for(const L of labels){
+        const rs=bestScore(L.text,f.table.row);if(!rs)continue;
+        if(f.yarn){ // 「Yarn 1」必須剛好是這個號碼
+          const t=norm(L.text).replace(/ /g,'');if(!new RegExp('^(yarn|紗)'+f.yarn+'$').test(t))continue;
+        }
+        const heads=labels.filter(H=>H.sheet===L.sheet&&H.row<L.row&&H.col>L.col&&bestScore(H.text,f.table.col));
+        if(!heads.length)continue;
+        const hr=Math.max(...heads.map(h=>h.row));
+        const cand=heads.filter(h=>h.row===hr).map(h=>({h,s:bestScore(h.text,f.table.col)})).sort((a,b)=>b.s-a.s)[0];
+        const score=rs*10+cand.s-(L.row-hr)*0.01;
+        if(!best||score>best.score)best={score,L,H:cand.h};
+      }
+      if(best){
+        const addr=colName(best.H.col)+best.L.row;
+        mapping[f.key]={cell:best.L.sheet+'!'+addr,label:best.L.text+' × '+best.H.text};
+        used.add(best.L.sheet+'!'+best.L.addr);used.add(best.H.sheet+'!'+best.H.addr);
+      }
+    }
+    // 2) 一般欄位：標籤右邊的格子（標籤橫跨整列時改用下方）
+    const cands=[];
+    for(const L of labels){
+      if(used.has(L.sheet+'!'+L.addr))continue;
+      for(const f of F){
+        if(f.table)continue;
+        const s=bestScore(L.text,f.syn,f.not);if(s)cands.push({f,L,s});
+      }
+    }
+    cands.sort((a,b)=>b.s-a.s);
+    const takenField=new Set(),takenLabel=new Set(),takenCell=new Set();
+    for(const c of cands){
+      const id=c.L.sheet+'!'+c.L.addr;
+      if(takenField.has(c.f.key)||takenLabel.has(id))continue;
+      const tgt=targetOf(c.L);if(!tgt||takenCell.has(c.L.sheet+'!'+tgt))continue;
+      mapping[c.f.key]={cell:c.L.sheet+'!'+tgt,label:c.L.text};
+      takenField.add(c.f.key);takenLabel.add(id);takenCell.add(c.L.sheet+'!'+tgt);used.add(id);
+    }
+    const mappedCells=new Set(Object.values(mapping).map(m=>m.cell));
+    const unmapped=labels.filter(L=>!used.has(L.sheet+'!'+L.addr)&&targetOf(L)&&!mappedCells.has(L.sheet+'!'+targetOf(L)))
+      .map(L=>({cell:L.sheet+'!'+L.addr,text:L.text}));
+    return {mapping,unmapped};
+  }
+  function targetOf(L){
+    const ws=L.ws;const m=mergeOf(ws,L.addr);
+    const right=m.right+1;
+    if(right<=L.maxCol){
+      const a=colName(right)+m.top;const c=ws.getCell(a);
+      if(isEmpty(c.value)||!(typeof cellVal(c.value)==='string'&&/[a-zA-Z]{3,}/.test(cellVal(c.value))&&!c.isMerged))return a;
+      return null;
+    }
+    const a=colName(m.left)+(m.bottom+1);
+    return isEmpty(ws.getCell(a).value)?a:null;
+  }
+
+  /* ── 從已填好的 FDS 讀值 ── */
+  function fmtDate(d){return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');}
+  function extract(wb,mapping){
+    const out={};
+    for(const [k,m] of Object.entries(mapping)){
+      const [sh,addr]=splitRef(m.cell);const ws=wb.getWorksheet(sh);if(!ws)continue;
+      let v=cellVal(ws.getCell(addr).value);
+      if(v==null||(typeof v==='string'&&!v.trim()))continue;
+      if(v instanceof Date)v=fmtDate(v);
+      out[k]=v;
+    }
+    return out;
+  }
+  function splitRef(ref){const i=ref.lastIndexOf('!');return [ref.slice(0,i).replace(/^'|'$/g,''),ref.slice(i+1).replace(/\$/g,'').toUpperCase()];}
+
+  /* ── 推導欄位（例如幅寬 inch ↔ cm）── */
+  function num(v){if(typeof v==='number')return v;const m=String(v==null?'':v).match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN;}
+  function derive(vals){
+    const v=Object.assign({},vals);
+    if(isBlank(v.width_cm)&&!isBlank(v.width_in)&&!isNaN(num(v.width_in)))v.width_cm=Math.round(num(v.width_in)*2.54);
+    if(isBlank(v.width_in)&&!isBlank(v.width_cm)&&!isNaN(num(v.width_cm))&&!/["”]|inch/i.test(String(v.width_cm)))v.width_in=Math.round(num(v.width_cm)/2.54);
+    return v;
+  }
+  function isBlank(v){return v==null||String(v).trim()==='';}
+
+  /* ── 把值寫進範本 ── */
+  function fill(wb,mapping,vals,today){
+    const v=derive(vals);
+    if(isBlank(v.fds_date))v.fds_date=today||fmtDate(new Date());
+    let n=0;
+    for(const [k,m] of Object.entries(mapping)){
+      if(isBlank(v[k]))continue;
+      const [sh,addr]=splitRef(m.cell);const ws=wb.getWorksheet(sh);if(!ws)continue;
+      const cell=ws.getCell(addr);let val=v[k];const f=BY_KEY[k];
+      if(f&&f.type==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(val))){
+        const [y,mo,d]=String(val).split('-').map(Number);val=new Date(Date.UTC(y,mo-1,d));
+        if(!cell.numFmt||cell.numFmt==='General')cell.numFmt='yyyy/m/d';
+      } else if(typeof val==='string'&&/^-?\d+(\.\d+)?$/.test(val.trim()))val=Number(val.trim());
+      cell.value=val;n++;
+    }
+    return n;
+  }
+
+  /* ── 檢查：缺漏與矛盾 ── */
+  function lint(vals,mapping,today){
+    const v=derive(vals);const issues=[];today=today||fmtDate(new Date());
+    const mapped=mapping?Object.keys(mapping):F.map(f=>f.key);
+    const lab=k=>(mapping&&mapping[k]&&mapping[k].label)||'';
+    // 缺漏
+    const yarnUsed=i=>['pct','count','supplier'].some(c=>!isBlank(v['yarn'+i+'_'+c]));
+    const testKeys=mapped.filter(k=>BY_KEY[k]&&BY_KEY[k].cat==='測試');
+    const testsEmpty=testKeys.length&&testKeys.every(k=>isBlank(v[k]));
+    if(testsEmpty)issues.push({type:'missing',key:'tests',msg:'測試資料全部空白（'+testKeys.length+' 格）'});
+    for(const k of mapped){
+      const f=BY_KEY[k];if(!f||f.auto||k==='comments')continue;
+      if(f.cat==='測試'&&testsEmpty)continue;
+      if(f.yarn&&!yarnUsed(f.yarn))continue;
+      if(['epi','ppi'].includes(k)&&/knit/i.test(String(v.construction||'')))continue;
+      if(['machine_dia','gauge','cpi','wpi'].includes(k)&&/woven/i.test(String(v.construction||'')))continue;
+      if(isBlank(v[k]))issues.push({type:'missing',key:k,msg:f.label+' 未填'});
+    }
+    // 矛盾
+    const wc=String(v.wash_care||'');const t=wc.match(/(\d{2})\s*[º°˚o]?\s*c/i);
+    if(/cold/i.test(wc)&&t&&+t[1]>30)issues.push({type:'warn',key:'wash_care',msg:'洗標寫 COLD WASH，卻標示 '+t[1]+'ºC（cold 一般指 30ºC 以下）'});
+    ['sample_lt','bulk_lt'].forEach(k=>{if(/(^|[\s\/])-\s*\d/.test(String(v[k]||'')))issues.push({type:'warn',key:k,msg:BY_KEY[k].label+' 出現負號：「'+v[k]+'」'});});
+    if(!isBlank(v.price)&&/fob/i.test(lab('price'))&&!/fob/i.test(String(v.price)))issues.push({type:'warn',key:'price',msg:'此格式要求 FOB 港口，單價未註明港口'});
+    const wl=lab('width_cm');
+    if(mapping&&mapping.width_cm&&!isBlank(vals.width_cm)&&/["”]|inch/i.test(String(vals.width_cm)))issues.push({type:'warn',key:'width_cm',msg:'幅寬欄位要求 cm，填的是「'+vals.width_cm+'」（inch）'});
+    const comp=String(v.composition||'');const pcs=(comp.match(/\d+(\.\d+)?\s*%/g)||[]).map(x=>parseFloat(x));
+    if(pcs.length&&Math.abs(pcs.reduce((a,b)=>a+b,0)-100)>0.5)issues.push({type:'warn',key:'composition',msg:'成分比例加總為 '+pcs.reduce((a,b)=>a+b,0)+'%'});
+    const yp=[1,2,3,4].map(i=>num(v['yarn'+i+'_pct'])).filter(x=>!isNaN(x));
+    if(yp.length&&Math.abs(yp.reduce((a,b)=>a+b,0)-100)>0.5)issues.push({type:'warn',key:'yarn1_pct',msg:'紗線比例加總為 '+yp.reduce((a,b)=>a+b,0)+'%'});
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(v.price_valid||''))&&v.price_valid<today)issues.push({type:'warn',key:'price_valid',msg:'報價有效期已過（'+v.price_valid+'）'});
+    void wl;
+    return issues;
+  }
+
+  return {FIELDS:F,BY_KEY,COMMERCIAL,CATS,TESTS,YARN_COLS,autoMap,extract,fill,lint,derive,splitRef,cellVal,fmtDate,norm,phraseHit};
+})();
+/* ────────────────────────────────────────────────────────────
+   與 Development Tracker 共用同一個 Firebase 專案與登入名單
+   ──────────────────────────────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyB7VtNAwE4zzB91Jy7MTbZtMXL9Tx8xEzI",
+  authDomain: "dev-tracker-fdba4.firebaseapp.com",
+  projectId: "dev-tracker-fdba4",
+  storageBucket: "dev-tracker-fdba4.firebasestorage.app",
+  messagingSenderId: "887214613991",
+  appId: "1:887214613991:web:ffaead79ec6ba4ece68942"
+};
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com','vivianyuyuang@gmail.com'];
+const ADMIN_EMAILS=['ches.0301@gmail.com'];
+const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa','vivianyuyuang@gmail.com':'Vivian','demo@local':'示範使用者'};
+
+const COL={articles:'fds_articles',quotes:'fds_quotes',templates:'fds_templates',logs:'fds_log',dev:'dev_tracker_items'};
+const DEMO=new URLSearchParams(location.search).has('demo');
+const TODAY=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
+const MAX_TEMPLATE_BYTES=700*1024;
+
+let currentUserEmail=null;
+let articles=[],quotes=[],templates=[],logs=[];
+let unsubs=[];
+let editingArticleId=null,editingTemplateId=null;
+let tplDraft=null;      // {mapping,unmapped,fileB64,fileName,wb}
+let impDraft=null;      // {tpl,vals}
+let genSelected=new Set();
+let genEdits={};        // quoteId -> {key:value}
+let devItems=[];
+
+/* ── 小工具 ── */
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(showToast._t);showToast._t=setTimeout(()=>t.classList.remove('show'),2800);}
+function displayName(e){return USER_NAMES[e]||e||'';}
+function isReadOnly(e){return READONLY_EMAILS.includes(e);}
+function isAdmin(){return DEMO||ADMIN_EMAILS.includes(currentUserEmail);}
+function canEditData(){return !!currentUserEmail&&!isReadOnly(currentUserEmail);}
+function artId(no){return String(no||'').trim().toUpperCase().replace(/[\/\\#?\s.]+/g,'_');}
+function cliId(c){return String(c||'').trim().toUpperCase().replace(/[\/\\#?\s.]+/g,'_');}
+function quoteId(no,client){return artId(no)+'__'+cliId(client);}
+function nowStamp(){return new Date().toISOString();}
+function blank(v){return v==null||String(v).trim()==='';}
+function bufToB64(buf){const b=new Uint8Array(buf);let s='';for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s);}
+function b64ToBuf(b64){const s=atob(b64);const b=new Uint8Array(s.length);for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);return b.buffer;}
+async function loadWb(buf){const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);return wb;}
+function readFile(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsArrayBuffer(file);});}
+function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1000);}
+function safeName(s){return String(s).replace(/[\\\/:*?"<>|]+/g,'_').trim();}
+function setupBackdropClose(bgId,closeFn){const bg=document.getElementById(bgId);let down=false;bg.addEventListener('mousedown',e=>{down=(e.target===bg);});bg.addEventListener('click',e=>{if(e.target===bg&&down)closeFn();down=false;});}
+
+/* ── 資料存取：正式＝Firestore；示範模式＝記憶體 ── */
+const Store={
+  mode:'firebase',db:null,mem:{},ls:{},
+  init(mode){this.mode=mode;if(mode==='firebase')this.db=firebase.firestore();},
+  _list(col){return Object.entries(this.mem[col]||{}).map(([id,d])=>Object.assign({id},JSON.parse(JSON.stringify(d))));},
+  _emit(col){(this.ls[col]||[]).forEach(cb=>cb(this._list(col)));},
+  listen(col,cb){
+    if(this.mode==='memory'){(this.ls[col]=this.ls[col]||[]).push(cb);cb(this._list(col));return()=>{this.ls[col]=(this.ls[col]||[]).filter(f=>f!==cb);};}
+    return this.db.collection(col).onSnapshot(s=>cb(s.docs.map(d=>Object.assign({id:d.id},d.data()))),err=>showToast('✗ 讀取資料失敗（'+col+'）：'+err.message));
+  },
+  async set(col,id,data){
+    if(this.mode==='memory'){(this.mem[col]=this.mem[col]||{})[id]=JSON.parse(JSON.stringify(data));this._emit(col);return;}
+    await this.db.collection(col).doc(id).set(data);
+  },
+  async add(col,data){
+    if(this.mode==='memory'){const id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);await this.set(col,id,data);return id;}
+    return (await this.db.collection(col).add(data)).id;
+  },
+  async remove(col,id){
+    if(this.mode==='memory'){if(this.mem[col])delete this.mem[col][id];this._emit(col);return;}
+    await this.db.collection(col).doc(id).delete();
+  },
+  async getAll(col){
+    if(this.mode==='memory')return this._list(col);
+    return (await this.db.collection(col).get()).docs.map(d=>Object.assign({id:d.id},d.data()));
+  }
+};
+
+/* ── 分頁 ── */
+function switchView(v){
+  ['articles','generate','logs','templates'].forEach(x=>{
+    document.getElementById(x+'-view').style.display=x===v?'block':'none';
+    document.getElementById('tab-'+x).classList.toggle('active',x===v);
+  });
+  if(v==='generate')renderGenerate();
+}
+function applyPermissions(){
+  document.querySelectorAll('.edit-only').forEach(el=>el.style.display=canEditData()?'':'none');
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=isAdmin()?'':'none');
+}
+function renderAll(){renderArticles();renderTemplates();renderLogs();if(document.getElementById('generate-view').style.display!=='none')renderGenerate();}
+
+/* ════════ 品號主檔 ════════ */
+const SPEC_KEYS=()=>FDS.FIELDS.filter(f=>['基本','規格','針織參數','梭織參數'].includes(f.cat)).map(f=>f.key);
+function relevantSpecKeys(fields){
+  const knit=/knit/i.test(String(fields.construction||'')),woven=/woven/i.test(String(fields.construction||''));
+  return SPEC_KEYS().filter(k=>!(knit&&['epi','ppi'].includes(k))&&!(woven&&['machine_dia','gauge','cpi','wpi'].includes(k))&&!['width_cm','width_in'].includes(k)).concat(['width']);
+}
+function completeness(a){
+  const f=FDS.derive(a.fields||{});const keys=relevantSpecKeys(f);
+  const filled=keys.filter(k=>k==='width'?!(blank(f.width_in)&&blank(f.width_cm)):!blank(f[k])).length;
+  const tk=FDS.FIELDS.filter(x=>x.cat==='測試').map(x=>x.key);
+  return {spec:filled,specTotal:keys.length,test:tk.filter(k=>!blank(f[k])).length,testTotal:tk.length};
+}
+function renderArticles(){
+  const q=(document.getElementById('art-search').value||'').toLowerCase().split(/\s+/).filter(Boolean);
+  const list=articles.filter(a=>{const hay=(a.article+' '+Object.values(a.fields||{}).join(' ')).toLowerCase();return q.every(w=>hay.includes(w));})
+    .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  const el=document.getElementById('article-list');
+  if(!articles.length){el.innerHTML='<div class="empty">還沒有品號。<br>可以先到「客戶格式」上傳空白 FDS，再用「從已填 FDS 匯入」把舊的 FDS 讀進來。</div>';return;}
+  if(!list.length){el.innerHTML='<div class="empty">沒有符合的品號</div>';return;}
+  el.innerHTML=list.map(a=>{
+    const f=FDS.derive(a.fields||{});const c=completeness(a);
+    const sub=[f.composition,f.weight_gsm,!blank(f.width_in)?f.width_in+(String(f.width_in).match(/["”]/)?'':'"'):(!blank(f.width_cm)?f.width_cm+(/["”]|cm/i.test(String(f.width_cm))?'':' cm'):'')].filter(x=>!blank(x)).join(' · ');
+    const ok=c.spec===c.specTotal;
+    return `<div class="customer-card"><div class="card-header" onclick="openArticleModal('${escHtml(a.id)}')">
+      <div class="card-meta"><div class="card-name">${escHtml(a.article)}</div><div class="card-company">${escHtml(sub||'尚未填寫規格')}</div></div>
+      <div class="card-right"><div class="card-badges">
+        <span class="badge" style="background:${ok?'#DCEFE0':'#FAEEDA'};color:${ok?'#1F6D3A':'#633806'}">規格 ${c.spec}/${c.specTotal}</span>
+        <span class="badge" style="background:${c.test?'#E6F1FB':'#F1EFE8'};color:${c.test?'#0C447C':'#444441'}">測試 ${c.test}/${c.testTotal}</span></div>
+        <div class="card-last">${escHtml((a.updatedAt||'').slice(0,10))} ${escHtml(displayName(a.updatedBy))}</div></div>
+    </div></div>`;
+  }).join('');
+}
+function fieldInput(f,val,opts){
+  opts=opts||{};
+  const ph=opts.placeholder?` placeholder="${escHtml(opts.placeholder)}"`:'';
+  const cls=blank(val)&&!opts.noMark?' class="is-empty"':'';
+  if(f.key==='construction')return `<select data-key="${f.key}"${cls} onchange="markEmpty(this)">${['','Weft Knit','Warp Knit','Woven'].map(o=>`<option${String(val||'')===o?' selected':''}>${o}</option>`).join('')}</select>`;
+  if(['wash_care','comments','attribute'].includes(f.key))return `<textarea data-key="${f.key}"${cls}${ph} oninput="markEmpty(this)">${escHtml(val)}</textarea>`;
+  return `<input data-key="${f.key}" value="${escHtml(val)}"${cls}${ph} oninput="markEmpty(this)">`;
+}
+function markEmpty(el){el.classList.toggle('is-empty',blank(el.value)&&!el.dataset.nomark);}
+function buildArticleForm(fields,ro){
+  const v=fields||{};let h='';
+  const groups=[['基本',['mill_name','contact_name','contact_email','mill_address','coo','cs_seamless']],
+    ['規格',['composition','weight_gsm','construction','structure','width_in','width_cm','shrinkage','dye_method','dye_type','print_method','coating','mech_finish','lamination','chem_finish','attribute','wash_care']],
+    ['針織參數',['machine_dia','gauge','cpi','wpi']],['梭織參數',['epi','ppi']]];
+  for(const [g,keys] of groups){
+    h+=`<div class="section-label">${g}</div><div class="fgrid">`;
+    for(const k of keys){const f=FDS.BY_KEY[k];const wide=['wash_care','attribute','composition'].includes(k)?' span2':'';
+      const opts=k==='width_cm'?{placeholder:'留空＝由 inch 自動換算',noMark:true}:(k==='width_in'?{placeholder:'例如 54（與 cm 擇一填即可）',noMark:true}:{});
+      h+=`<div class="field${wide}"><label>${escHtml(f.label)}</label>${fieldInput(f,v[k],opts)}</div>`;}
+    h+='</div>';
+  }
+  h+='<div class="section-label">紗線</div><div class="tbl-wrap"><table class="grid-table"><tr><th></th>'+FDS.YARN_COLS.map(c=>`<th>${escHtml(c[1])}</th>`).join('')+'</tr>';
+  for(let i=1;i<=4;i++)h+=`<tr><td class="rl">紗 ${i}</td>`+FDS.YARN_COLS.map(c=>{const k='yarn'+i+'_'+c[0];return `<td><input data-key="${k}" data-nomark="1" value="${escHtml(v[k])}"></td>`;}).join('')+'</tr>';
+  h+='</table></div>';
+  h+='<div class="section-label">測試</div><div class="tbl-wrap"><table class="grid-table"><tr><th>項目</th><th>結果</th><th>方法</th></tr>';
+  for(const [k,zh] of FDS.TESTS)h+=`<tr><td class="rl">${escHtml(zh)}</td><td><input data-key="t_${k}_grade" data-nomark="1" value="${escHtml(v['t_'+k+'_grade'])}"></td><td><input data-key="t_${k}_method" data-nomark="1" value="${escHtml(v['t_'+k+'_method'])}" placeholder="例如 ASTM D3512"></td></tr>`;
+  h+='</table></div>';
+  h+=`<div class="section-label">其他備註</div><div class="field">${fieldInput(FDS.BY_KEY.comments,v.comments,{noMark:true})}</div>`;
+  const box=document.getElementById('art-form');box.innerHTML=h;
+  box.querySelectorAll('[data-nomark]').forEach(el=>el.classList.remove('is-empty'));
+  box.querySelectorAll('input,select,textarea').forEach(el=>el.disabled=!!ro);
+}
+function openArticleModal(id,prefill,source){
+  editingArticleId=id||null;
+  const a=id?articles.find(x=>x.id===id):null;
+  const ro=!canEditData();
+  document.getElementById('art-modal-title').textContent=a?(ro?'檢視品號':'編輯品號'):'新增品號';
+  const no=document.getElementById('art-no');no.value=a?a.article:(prefill&&prefill.article_no||'');no.disabled=!!a||ro;
+  const src=(a&&a.source)||source;
+  document.getElementById('art-source').innerHTML=src?`<i class="ti ti-link"></i> 來自開發項目：${escHtml([src.brand,src.article,src.family,src.season].filter(Boolean).join(' · '))}${src.yarn?'｜紗線：'+escHtml(src.yarn):''}${src.knitter?'｜Knitter：'+escHtml(src.knitter):''}${src.dyehouse?'｜染廠：'+escHtml(src.dyehouse):''}`:'';
+  document.getElementById('art-modal-bg').dataset.source=src?JSON.stringify(src):'';
+  buildArticleForm(Object.assign({},a?a.fields:{},prefill||{}),ro);
+  document.getElementById('art-save').style.display=ro?'none':'';
+  document.getElementById('art-del').style.display=a&&(isAdmin()||a.createdBy===currentUserEmail)&&!ro?'':'none';
+  document.getElementById('art-modal-bg').style.display='flex';
+}
+function closeArticleModal(){document.getElementById('art-modal-bg').style.display='none';editingArticleId=null;}
+async function saveArticle(){
+  if(!canEditData()){showToast('✗ 唯讀帳號無法編輯');return;}
+  const no=document.getElementById('art-no').value.trim();
+  if(!no){document.getElementById('art-no').focus();showToast('請填工廠品號');return;}
+  const id=editingArticleId||artId(no);
+  if(!editingArticleId&&articles.some(a=>a.id===id)){showToast('✗ 品號 '+no+' 已存在，請直接編輯它');return;}
+  const prev=editingArticleId?articles.find(a=>a.id===id):null;
+  const fields={};
+  document.querySelectorAll('#art-form [data-key]').forEach(el=>{const v=el.value.trim();if(v)fields[el.dataset.key]=v;});
+  fields.article_no=prev?prev.article:no;
+  const srcRaw=document.getElementById('art-modal-bg').dataset.source;
+  const doc={article:prev?prev.article:no,fields,createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  if(srcRaw)doc.source=JSON.parse(srcRaw);
+  try{await Store.set(COL.articles,id,doc);showToast('✓ 已儲存 '+doc.article);closeArticleModal();}
+  catch(e){showToast('✗ 儲存失敗：'+e.message);}
+}
+async function deleteArticle(){
+  const a=articles.find(x=>x.id===editingArticleId);if(!a)return;
+  if(!confirm('確定刪除品號 '+a.article+'？（該品號的報價條件也會一併刪除）'))return;
+  try{
+    await Store.remove(COL.articles,a.id);
+    for(const q of quotes.filter(q=>q.articleId===a.id))await Store.remove(COL.quotes,q.id);
+    showToast('已刪除 '+a.article);closeArticleModal();
+  }catch(e){showToast('✗ 刪除失敗：'+e.message);}
+}
+
+/* ════════ 客戶格式 ════════ */
+function renderTemplates(){
+  const el=document.getElementById('template-list');
+  if(!templates.length){el.innerHTML='<div class="empty">還沒有客戶格式。'+(isAdmin()?'按「新增客戶格式」上傳一份空白 FDS。':'請管理員新增。')+'</div>';return;}
+  el.innerHTML=templates.slice().sort((a,b)=>String(a.client).localeCompare(String(b.client))).map(t=>{
+    const n=Object.keys(t.mapping||{}).length;
+    return `<div class="customer-card"><div class="card-header" ${isAdmin()?`onclick="openTemplateModal('${escHtml(t.id)}')"`:''}>
+      <div class="card-meta"><div class="card-name">${escHtml(t.name)}</div><div class="card-company">客戶：${escHtml(t.client)}｜範本：${escHtml(t.fileName||'')}</div></div>
+      <div class="card-right"><div class="card-badges"><span class="badge" style="background:#EEEDFE;color:#3C3489">已對應 ${n} 個欄位</span></div>
+      <div class="card-last">${escHtml((t.updatedAt||'').slice(0,10))} ${escHtml(displayName(t.updatedBy))}</div></div></div></div>`;
+  }).join('');
+}
+function openTemplateModal(id){
+  if(!isAdmin()){showToast('✗ 只有管理員能修改客戶格式');return;}
+  editingTemplateId=id||null;const t=id?templates.find(x=>x.id===id):null;
+  document.getElementById('tpl-modal-title').textContent=t?'編輯客戶格式':'新增客戶格式';
+  document.getElementById('tpl-name').value=t?t.name:'';
+  document.getElementById('tpl-client').value=t?t.client:'';
+  document.getElementById('tpl-file').value='';
+  document.getElementById('tpl-file-label').textContent=t?'更換範本（選填，留空＝沿用 '+(t.fileName||'')+'）':'空白 FDS 範本（.xlsx）*';
+  tplDraft=t?{mapping:JSON.parse(JSON.stringify(t.mapping||{})),unmapped:t.unmapped||[],fileB64:t.fileB64,fileName:t.fileName,wb:null}:null;
+  renderTemplateMap();
+  document.getElementById('tpl-modal-bg').style.display='flex';
+}
+function closeTemplateModal(){document.getElementById('tpl-modal-bg').style.display='none';editingTemplateId=null;tplDraft=null;}
+async function onTemplateFile(ev){
+  const file=ev.target.files[0];if(!file)return;
+  try{
+    const buf=await readFile(file);
+    if(buf.byteLength>MAX_TEMPLATE_BYTES){showToast('✗ 檔案超過 700KB，請先刪除範本中不需要的分頁或圖片');ev.target.value='';return;}
+    const wb=await loadWb(buf);const r=FDS.autoMap(wb);
+    tplDraft={mapping:r.mapping,unmapped:r.unmapped,fileB64:bufToB64(buf),fileName:file.name,wb};
+    if(!document.getElementById('tpl-name').value)document.getElementById('tpl-name').value=file.name.replace(/\.xlsx$/i,'');
+    renderTemplateMap();
+    showToast('✓ 自動辨識出 '+Object.keys(r.mapping).length+' 個欄位，請檢查後儲存');
+  }catch(e){showToast('✗ 無法讀取這個檔案：'+e.message);}
+}
+function renderTemplateMap(){
+  const box=document.getElementById('tpl-map');
+  if(!tplDraft){box.innerHTML='';return;}
+  const m=tplDraft.mapping;const n=Object.keys(m).length;
+  let h=`<div class="section-label">欄位對應（自動辨識 ${n} 個）</div><div class="hint" style="margin-top:0">儲存格格式：分頁名稱!儲存格，例如 Technical!F19。清空＝這個格式不填該欄位。</div>`;
+  const cats=['基本','自動','商務','規格','針織參數','梭織參數','紗線','測試','其他'];
+  for(const c of cats){
+    const fs=FDS.FIELDS.filter(f=>f.cat===c);if(!fs.length)continue;
+    const cnt=fs.filter(f=>m[f.key]).length;
+    h+=`<details class="map-group"${['紗線','測試'].includes(c)?'':' open'}><summary>${c}<span class="map-count">${cnt}/${fs.length}</span></summary><table class="grid-table map-table"><tr><th>欄位</th><th>儲存格</th><th>範本上的標籤</th></tr>`;
+    for(const f of fs){const x=m[f.key];
+      h+=`<tr class="${x?'':'unmapped-row'}"><td class="rl">${escHtml(f.label)}</td><td><input data-mapkey="${f.key}" value="${escHtml(x?x.cell:'')}" placeholder="—" onchange="onMapEdit(this)"></td><td class="lbl">${escHtml(x?String(x.label).replace(/\n/g,' '):'')}</td></tr>`;}
+    h+='</table></details>';
+  }
+  if(tplDraft.unmapped&&tplDraft.unmapped.length){
+    h+=`<div class="section-label">範本上沒有對應到的標籤</div><div class="hint" style="margin-top:0">多半是區段標題，可以忽略；若其中有需要填寫的欄位，請在上表手動指定儲存格，或告訴管理員補進欄位字典。</div><div class="chips">`+
+      tplDraft.unmapped.map(u=>`<span class="chip-plain">${escHtml(u.cell)}：${escHtml(String(u.text).replace(/\n/g,' '))}</span>`).join('')+'</div>';
+  }
+  box.innerHTML=h;
+}
+function onMapEdit(el){
+  const k=el.dataset.mapkey;const v=el.value.trim();
+  if(!v){delete tplDraft.mapping[k];}
+  else{
+    if(!/^.+![A-Za-z]{1,3}\d{1,5}$/.test(v)){showToast('✗ 格式錯誤，應為 分頁!儲存格，例如 Technical!F19');el.focus();return;}
+    tplDraft.mapping[k]={cell:v.replace(/!([a-z]+)/,(m0,c)=>'!'+c.toUpperCase()),label:'（手動指定）'};
+  }
+  el.closest('tr').classList.toggle('unmapped-row',!v);
+  el.closest('tr').querySelector('.lbl').textContent=v?'（手動指定）':'';
+}
+async function saveTemplate(){
+  if(!isAdmin())return;
+  const name=document.getElementById('tpl-name').value.trim(),client=document.getElementById('tpl-client').value.trim();
+  if(!name||!client){showToast('請填格式名稱與客戶名稱');return;}
+  if(!tplDraft||!tplDraft.fileB64){showToast('請上傳空白 FDS 範本');return;}
+  // 確認儲存格所在的分頁存在
+  try{
+    const wb=tplDraft.wb||await loadWb(b64ToBuf(tplDraft.fileB64));
+    const bad=Object.entries(tplDraft.mapping).filter(([k,x])=>!wb.getWorksheet(FDS.splitRef(x.cell)[0]));
+    if(bad.length){showToast('✗ 找不到分頁：'+bad.map(b=>b[1].cell).join('、'));return;}
+  }catch(e){showToast('✗ 範本讀取失敗：'+e.message);return;}
+  const prev=editingTemplateId?templates.find(t=>t.id===editingTemplateId):null;
+  const doc={name,client,fileName:tplDraft.fileName,fileB64:tplDraft.fileB64,mapping:tplDraft.mapping,unmapped:tplDraft.unmapped||[],
+    createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  try{
+    if(prev)await Store.set(COL.templates,prev.id,doc);else await Store.add(COL.templates,doc);
+    showToast('✓ 已儲存格式：'+name);closeTemplateModal();
+  }catch(e){showToast('✗ 儲存失敗：'+e.message);}
+}
+
+/* ════════ 從已填 FDS 匯入 ════════ */
+function openImportModal(){
+  if(!templates.length){showToast('請先到「客戶格式」新增這份 FDS 的格式');switchView('templates');return;}
+  const sel=document.getElementById('imp-tpl');
+  sel.innerHTML=templates.map(t=>`<option value="${escHtml(t.id)}">${escHtml(t.name)}（${escHtml(t.client)}）</option>`).join('');
+  document.getElementById('imp-file').value='';document.getElementById('imp-preview').innerHTML='';
+  document.getElementById('imp-save').disabled=true;impDraft=null;
+  document.getElementById('imp-modal-bg').style.display='flex';
+}
+function closeImportModal(){document.getElementById('imp-modal-bg').style.display='none';impDraft=null;}
+async function onImportFile(ev){
+  const file=ev.target.files[0];if(!file)return;
+  const tpl=templates.find(t=>t.id===document.getElementById('imp-tpl').value);
+  try{
+    const wb=await loadWb(await readFile(file));
+    const vals=FDS.extract(wb,tpl.mapping);
+    impDraft={tpl,vals,fileName:file.name};renderImportPreview();
+  }catch(e){showToast('✗ 讀取失敗：'+e.message);}
+}
+function renderImportPreview(){
+  const {tpl,vals}=impDraft;const keys=Object.keys(vals).filter(k=>k!=='fds_date');
+  const no=vals.article_no||'';
+  const exists=no&&articles.find(a=>a.id===artId(no));
+  const issues=FDS.lint(vals,tpl.mapping,TODAY);
+  let h=`<div class="fgrid"><div class="field"><label>工廠品號 *</label><input id="imp-no" value="${escHtml(no)}" oninput="impNoChanged()"></div>
+    <div class="field" id="imp-mode-box">${exists?`<label>主檔已有此品號</label><select id="imp-mode"><option value="fill">只補主檔中空白的欄位</option><option value="overwrite">用這份 FDS 覆蓋</option></select>`:'<label>&nbsp;</label><div class="hint" style="margin:6px 0 0">將建立新品號</div>'}</div></div>`;
+  h+=`<div class="section-label">讀到 ${keys.length} 個欄位</div><div class="tbl-wrap" style="max-height:300px"><table class="grid-table"><tr><th>欄位</th><th>內容</th><th>存到</th></tr>`+
+    keys.map(k=>{const f=FDS.BY_KEY[k];return `<tr><td class="rl">${escHtml(f?f.label:k)}</td><td class="val">${escHtml(String(vals[k]))}</td><td class="lbl">${FDS.COMMERCIAL.includes(k)?escHtml(tpl.client)+' 報價':'主檔'}</td></tr>`;}).join('')+'</table></div>';
+  h+=issuesHTML(issues);
+  document.getElementById('imp-preview').innerHTML=h;
+  document.getElementById('imp-save').disabled=!canEditData();
+}
+function impNoChanged(){const no=document.getElementById('imp-no').value;impDraft.vals.article_no=no;const keep=no;renderImportPreview();const el=document.getElementById('imp-no');el.value=keep;el.focus();}
+async function confirmImport(){
+  if(!impDraft||!canEditData())return;
+  const no=document.getElementById('imp-no').value.trim();if(!no){showToast('請填工廠品號');return;}
+  const {tpl,vals}=impDraft;const id=artId(no);
+  const prev=articles.find(a=>a.id===id);
+  const mode=(document.getElementById('imp-mode')||{}).value||'fill';
+  const spec={},com={};
+  for(const [k,v] of Object.entries(vals)){if(k==='fds_date')continue;(FDS.COMMERCIAL.includes(k)?com:spec)[k]=v;}
+  spec.article_no=prev?prev.article:no;
+  let fields;
+  if(prev&&mode==='fill'){fields=Object.assign({},prev.fields);for(const [k,v] of Object.entries(spec))if(blank(fields[k]))fields[k]=v;}
+  else fields=Object.assign({},prev?prev.fields:{},spec);
+  const doc={article:prev?prev.article:no,fields,source:prev&&prev.source||null,importedFrom:impDraft.fileName,createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  if(!doc.source)delete doc.source;
+  try{
+    await Store.set(COL.articles,id,doc);
+    if(Object.keys(com).length){
+      const qid=quoteId(no,tpl.client);const pq=quotes.find(q=>q.id===qid);
+      const qf=Object.assign({},pq?pq.fields:{});for(const [k,v] of Object.entries(com))if(mode==='overwrite'||blank(qf[k]))qf[k]=v;
+      await Store.set(COL.quotes,qid,{articleId:id,article:doc.article,client:tpl.client,fields:qf,updatedBy:currentUserEmail,updatedAt:nowStamp()});
+    }
+    showToast('✓ 已匯入 '+doc.article+'（主檔 '+Object.keys(spec).length+' 欄、報價 '+Object.keys(com).length+' 欄）');
+    closeImportModal();
+  }catch(e){showToast('✗ 匯入失敗：'+e.message);}
+}
+
+/* ════════ 從開發項目帶入 ════════ */
+async function openDevPickModal(){
+  document.getElementById('dev-modal-bg').style.display='flex';
+  document.getElementById('dev-list').innerHTML='<div class="empty">載入中…</div>';
+  try{
+    devItems=DEMO?[
+      {id:'demo1',brand:'示範品牌',article:'DEMO-001',family:'Legging',season:'SS27',cw:'54',gsm:'230',gauge:'28G',yarn:'N40D/34F + SP40D',knitter:'示範織廠',dyehouse:'示範染廠'},
+      {id:'demo2',brand:'示範品牌',article:'DEMO-002',family:'Bra',season:'SS27',cw:'60',gsm:'180',gauge:'32G',yarn:'P50D/72F + SP30D'}
+    ]:await Store.getAll(COL.dev);
+    renderDevPick();
+  }catch(e){document.getElementById('dev-list').innerHTML='<div class="empty">讀取開發項目失敗：'+escHtml(e.message)+'</div>';}
+}
+function closeDevPickModal(){document.getElementById('dev-modal-bg').style.display='none';}
+function renderDevPick(){
+  const q=(document.getElementById('dev-search').value||'').toLowerCase().split(/\s+/).filter(Boolean);
+  const list=devItems.filter(d=>{const hay=[d.brand,d.article,d.family,d.season,d.yarn].join(' ').toLowerCase();return q.every(w=>hay.includes(w));});
+  document.getElementById('dev-list').innerHTML=list.length?list.map(d=>{
+    const has=d.article&&articles.some(a=>a.id===artId(d.article));
+    return `<div class="pick-row" onclick="pickDevItem('${escHtml(d.id)}')"><div><b>${escHtml(d.article||'（無 Article#）')}</b> <span class="muted">${escHtml([d.brand,d.family,d.season].filter(Boolean).join(' · '))}</span><div class="muted">${escHtml([d.yarn,d.gsm&&d.gsm+' gsm',d.cw&&'CW '+d.cw,d.gauge].filter(Boolean).join('｜'))}</div></div>${has?'<span class="badge" style="background:#DCEFE0;color:#1F6D3A">主檔已有</span>':''}</div>`;
+  }).join(''):'<div class="empty">沒有開發項目</div>';
+}
+function pickDevItem(id){
+  const d=devItems.find(x=>x.id===id);if(!d)return;
+  if(!d.article){showToast('這筆開發項目沒有 Article#，請先在 Tracker 補上');return;}
+  closeDevPickModal();
+  const pre={article_no:d.article};if(d.cw)pre.width_in=d.cw;if(d.gsm)pre.weight_gsm=d.gsm;if(d.gauge)pre.gauge=d.gauge;
+  const src={devItemId:d.id,brand:d.brand||'',article:d.article||'',family:d.family||'',season:d.season||'',yarn:d.yarn||'',knitter:d.knitter||'',dyehouse:d.dyehouse||''};
+  const ex=articles.find(a=>a.id===artId(d.article));
+  if(ex){const fill={};for(const [k,v] of Object.entries(pre))if(blank(ex.fields[k]))fill[k]=v;openArticleModal(ex.id,fill,src);showToast('主檔已有此品號，只帶入空白欄位');}
+  else openArticleModal(null,pre,src);
+}
+
+/* ════════ 產生 FDS ════════ */
+function currentTemplate(){return templates.find(t=>t.id===document.getElementById('gen-tpl').value);}
+function renderGenerate(){
+  const sel=document.getElementById('gen-tpl');const cur=sel.value;
+  sel.innerHTML=templates.length?templates.map(t=>`<option value="${escHtml(t.id)}">${escHtml(t.name)}（${escHtml(t.client)}）</option>`).join(''):'<option value="">（尚無客戶格式）</option>';
+  if(cur&&templates.some(t=>t.id===cur))sel.value=cur;
+  const t=currentTemplate();
+  document.getElementById('gen-tpl-hint').textContent=t?'客戶：'+t.client+'｜此格式需要 '+Object.keys(t.mapping).length+' 個欄位':'請先到「客戶格式」新增格式';
+  renderGenPicker();renderGenItems();
+}
+function onGenTemplateChange(){genEdits={};renderGenerate();}
+function renderGenPicker(){
+  const q=(document.getElementById('gen-search').value||'').toLowerCase();
+  const list=articles.filter(a=>a.article.toLowerCase().includes(q)).sort((a,b)=>a.article.localeCompare(b.article));
+  document.getElementById('gen-picker').innerHTML=list.length?list.map(a=>`<label class="pick-row"><input type="checkbox" ${genSelected.has(a.id)?'checked':''} onchange="toggleGen('${escHtml(a.id)}',this.checked)"> <b>${escHtml(a.article)}</b> <span class="muted">${escHtml(a.fields.composition||'')}</span></label>`).join(''):'<div class="empty" style="padding:1rem">沒有品號</div>';
+}
+function toggleGen(id,on){on?genSelected.add(id):genSelected.delete(id);renderGenItems();}
+function valsFor(a,t){
+  const q=quotes.find(x=>x.id===quoteId(a.article,t.client));
+  return Object.assign({},a.fields,q?q.fields:{},genEdits[quoteId(a.article,t.client)]||{});
+}
+function renderGenItems(){
+  const t=currentTemplate();const box=document.getElementById('gen-items');
+  const sel=[...genSelected].map(id=>articles.find(a=>a.id===id)).filter(Boolean);
+  document.getElementById('btn-generate').disabled=!t||!sel.length;
+  document.getElementById('btn-generate').innerHTML='<i class="ti ti-download"></i> 產生並下載'+(sel.length>1?'（'+sel.length+' 份，打包成 zip）':'');
+  if(!t||!sel.length){box.innerHTML='';return;}
+  const comKeys=FDS.COMMERCIAL.filter(k=>t.mapping[k]);
+  box.innerHTML=sel.map(a=>{
+    const v=valsFor(a,t);const qid=quoteId(a.article,t.client);
+    const issues=FDS.lint(v,t.mapping,TODAY);
+    return `<div class="calc-card gen-card"><h3>${escHtml(a.article)} <span class="muted" style="font-weight:400">× ${escHtml(t.client)}</span></h3>
+      ${comKeys.length?`<div class="section-label" style="margin-top:0">${escHtml(t.client)} 的報價條件</div><div class="fgrid">`+comKeys.map(k=>{const f=FDS.BY_KEY[k];
+        const lab=t.mapping[k].label&&t.mapping[k].label!=='（手動指定）'?String(t.mapping[k].label).replace(/\n/g,' '):'';
+        return `<div class="field"><label title="${escHtml(lab)}">${escHtml(f.label)}${lab?'<span class="muted"> ｜'+escHtml(lab)+'</span>':''}</label>${f.type==='date'?`<input type="date" value="${escHtml(v[k]||'')}" class="${blank(v[k])?'is-empty':''}" oninput="genEdit('${qid}','${k}',this)">`:`<textarea rows="${Math.max(1,String(v[k]||'').split('\n').length)}" class="${blank(v[k])?'is-empty':''}" oninput="genEdit('${qid}','${k}',this)">${escHtml(v[k]||'')}</textarea>`}</div>`;}).join('')+'</div>':''}
+      ${issuesHTML(issues,a.id)}
+    </div>`;
+  }).join('');
+}
+function genEdit(qid,k,el){(genEdits[qid]=genEdits[qid]||{})[k]=el.value;el.classList.toggle('is-empty',blank(el.value));clearTimeout(genEdit._t);genEdit._t=setTimeout(refreshGenIssues,500);}
+function refreshGenIssues(){ // 只更新檢查清單，不重畫輸入框（避免游標跳掉）
+  const t=currentTemplate();if(!t)return;
+  document.querySelectorAll('#gen-items .gen-card').forEach((card,i)=>{
+    const a=[...genSelected].map(id=>articles.find(x=>x.id===id)).filter(Boolean)[i];if(!a)return;
+    const old=card.querySelector('.issues');const tmp=document.createElement('div');tmp.innerHTML=issuesHTML(FDS.lint(valsFor(a,t),t.mapping,TODAY),a.id);
+    if(old)old.replaceWith(tmp.firstElementChild);
+  });
+}
+function issuesHTML(issues,artIdForLink){
+  const warn=issues.filter(i=>i.type==='warn'),miss=issues.filter(i=>i.type==='missing');
+  if(!issues.length)return '<div class="issues ok"><i class="ti ti-circle-check"></i> 檢查通過，沒有缺漏或矛盾</div>';
+  let h='<div class="issues">';
+  if(warn.length)h+='<div class="issue-title warn"><i class="ti ti-alert-triangle"></i> 需要確認（'+warn.length+'）</div>'+warn.map(i=>`<div class="issue warn">${escHtml(i.msg)}</div>`).join('');
+  if(miss.length)h+='<div class="issue-title missing"><i class="ti ti-circle-dashed"></i> 未填（'+miss.length+'）'+(artIdForLink?` <a href="#" onclick="openArticleModal('${escHtml(artIdForLink)}');return false">到主檔補資料</a>`:'')+'</div><div class="chips">'+miss.map(i=>`<span class="chip-plain">${escHtml(i.msg.replace(/ 未填$/,''))}</span>`).join('')+'</div>';
+  return h+'</div>';
+}
+async function generateSelected(){
+  const t=currentTemplate();const sel=[...genSelected].map(id=>articles.find(a=>a.id===id)).filter(Boolean);
+  if(!t||!sel.length)return;
+  const btn=document.getElementById('btn-generate');btn.disabled=true;btn.textContent='產生中…';
+  try{
+    const files=[];
+    for(const a of sel){
+      const v=valsFor(a,t);const wb=await loadWb(b64ToBuf(t.fileB64));
+      FDS.fill(wb,t.mapping,v,TODAY);
+      const buf=await wb.xlsx.writeBuffer();
+      files.push({name:safeName(t.client+'_FDS_'+a.article+'_'+TODAY)+'.xlsx',buf,a,issues:FDS.lint(v,t.mapping,TODAY)});
+    }
+    if(files.length===1)download(new Blob([files[0].buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),files[0].name);
+    else{const zip=new JSZip();files.forEach(f=>zip.file(f.name,f.buf));download(await zip.generateAsync({type:'blob'}),safeName(t.client+'_FDS_'+TODAY)+'.zip');}
+    // 有改過的報價條件存回去 + 留紀錄
+    if(canEditData()){
+      for(const f of files){
+        const qid=quoteId(f.a.article,t.client);const ed=genEdits[qid];
+        if(ed&&Object.keys(ed).length){const pq=quotes.find(q=>q.id===qid);const qf=Object.assign({},pq?pq.fields:{});for(const [k,v] of Object.entries(ed)){if(blank(v))delete qf[k];else qf[k]=v.trim();}
+          await Store.set(COL.quotes,qid,{articleId:f.a.id,article:f.a.article,client:t.client,fields:qf,updatedBy:currentUserEmail,updatedAt:nowStamp()});}
+        await Store.add(COL.logs,{article:f.a.article,client:t.client,template:t.name,by:currentUserEmail,at:nowStamp(),warn:f.issues.filter(i=>i.type==='warn').length,missing:f.issues.filter(i=>i.type==='missing').length});
+      }
+      genEdits={};
+    }
+    showToast('✓ 已產生 '+files.length+' 份 FDS');
+  }catch(e){showToast('✗ 產生失敗：'+e.message);}
+  btn.disabled=false;renderGenItems();
+}
+
+/* ════════ 送出紀錄 ════════ */
+function renderLogs(){
+  const el=document.getElementById('log-list');
+  if(!logs.length){el.innerHTML='<div class="empty">尚無紀錄</div>';return;}
+  el.innerHTML='<div class="tbl-wrap"><table class="grid-table log-table"><tr><th>時間</th><th>品號</th><th>客戶 / 格式</th><th>產生者</th><th>檢查</th></tr>'+
+    logs.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,300).map(l=>{const d=new Date(l.at);
+      const ts=isNaN(d)?'':d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      return `<tr><td>${escHtml(ts)}</td><td><b>${escHtml(l.article)}</b></td><td>${escHtml(l.client)}<div class="muted">${escHtml(l.template)}</div></td><td>${escHtml(displayName(l.by))}</td><td>${l.warn?`<span class="badge" style="background:#FBE9E7;color:#8C1D18">待確認 ${l.warn}</span> `:''}${l.missing?`<span class="badge" style="background:#FAEEDA;color:#633806">未填 ${l.missing}</span>`:''}${!l.warn&&!l.missing?'<span class="badge" style="background:#DCEFE0;color:#1F6D3A">通過</span>':''}</td></tr>`;}).join('')+'</table></div>';
+}
+
+/* ════════ 登入與啟動 ════════ */
+function showScreen(which){
+  document.getElementById('login-screen').style.display=which==='login'?'flex':'none';
+  document.getElementById('unauthorized-screen').style.display=which==='unauthorized'?'flex':'none';
+  document.getElementById('app-page').style.display=which==='app'?'block':'none';
+}
+function signInWithGoogle(){firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(err=>{if(err.code!=='auth/popup-closed-by-user')showToast('✗ 登入失敗：'+err.message);});}
+function signOutUser(){if(DEMO){location.href=location.pathname;return;}firebase.auth().signOut();}
+function attachListeners(){
+  detachListeners();
+  unsubs.push(Store.listen(COL.articles,d=>{articles=d.map(a=>Object.assign({fields:{}},a));renderArticles();if(document.getElementById('generate-view').style.display!=='none'){renderGenPicker();renderGenItems();}}));
+  if(!isReadOnly(currentUserEmail))unsubs.push(Store.listen(COL.quotes,d=>{quotes=d;if(document.getElementById('generate-view').style.display!=='none')renderGenItems();}));
+  unsubs.push(Store.listen(COL.templates,d=>{templates=d;renderTemplates();if(document.getElementById('generate-view').style.display!=='none')renderGenerate();}));
+  unsubs.push(Store.listen(COL.logs,d=>{logs=d;renderLogs();}));
+}
+function detachListeners(){unsubs.forEach(u=>{try{u();}catch(e){}});unsubs=[];articles=[];quotes=[];templates=[];logs=[];}
+function enterApp(email){
+  currentUserEmail=email;
+  document.getElementById('user-email-display').textContent=displayName(email);
+  showScreen('app');applyPermissions();attachListeners();
+}
+['art-modal-bg','tpl-modal-bg','imp-modal-bg','dev-modal-bg'].forEach((id,i)=>setupBackdropClose(id,[closeArticleModal,closeTemplateModal,closeImportModal,closeDevPickModal][i]));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeArticleModal();closeTemplateModal();closeImportModal();closeDevPickModal();}});
+
+if(DEMO){
+  Store.init('memory');document.getElementById('demo-banner').style.display='flex';
+  enterApp('demo@local');
+} else {
+  firebase.initializeApp(firebaseConfig);Store.init('firebase');
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user){currentUserEmail=null;detachListeners();showScreen('login');}
+    else if(!ALLOWED_EMAILS.includes(user.email)){currentUserEmail=null;detachListeners();document.getElementById('unauthorized-email').textContent=user.email;showScreen('unauthorized');}
+    else enterApp(user.email);
+  });
+}
+</script>
+</body>
+</html>
