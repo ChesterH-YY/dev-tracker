@@ -451,52 +451,80 @@ label.pick-row{justify-content:flex-start;}
    （不碰畫面與資料庫，方便單獨測試）
    ════════════════════════════════════════════════════════════ */
 const FDS = (function(){
-  // syn：標籤比對詞；「&」表示同時要有；英文以字詞比對（最後一個字可前綴），中文以子字串比對
-  // not：標籤若含這些字詞則不比對；cat：分類；type：date / num / text
+  // syn：標籤比對詞；「&」表示同時要有；英文以字詞比對（最後一個字可前綴），中文以子字串比對，「%」比對原始標籤
+  // not：標籤若含這些字詞則不比對；cat：分類；type：date / bool；derived：可由其他欄位推導（留空時自動帶入）
+  // extra：選填的延伸欄位（不列入完整度）
   const F = [];
   function add(key,label,cat,syn,opt){F.push(Object.assign({key,label,cat,syn:syn||[]},opt||{}));}
 
-  add('client_code','客戶自編代碼','商務',['oner active code','customer code','client code','buyer code','brand code','客戶編號','客戶代碼']);
+  add('client_code','客戶自編代碼','商務',['oner active code','arf code','customer code','client code','buyer code','brand code','客戶編號','客戶代碼']);
   add('article_no','工廠品號','基本',['mill ref','mill article','supplier ref','vendor ref','fabric ref','article no','article number','工廠品號','品號'],{not:['code']});
-  add('mill_name','工廠名稱','基本',['fabric mill','mill name','supplier name','vendor name','布廠','工廠名稱'],{not:['ref','address','contact']});
-  add('contact_name','聯絡窗口','基本',['contact name','contact person','聯絡人','聯絡窗口']);
+  add('mill_name','工廠名稱','基本',['fabric mill','mill name','supplier name','vendor name','布廠','工廠名稱'],{not:['ref','address','contact','article']});
+  add('contact_name','聯絡窗口','基本',['contact name','contact person','mill contact','contact','聯絡人','聯絡窗口'],{not:['email','mail','phone','tel']});
   add('contact_email','聯絡 Email','基本',['email','e mail','電子郵件']);
+  add('contact_phone','聯絡電話','基本',['phone','tel','telephone','電話'],{extra:true});
   add('mill_address','工廠地址','基本',['mill address','address','地址']);
   add('cs_seamless','裁剪 / 無縫','基本',['seamless','cut sew','cut and sew']);
   add('coo','布料產地','基本',['country of origin','origin','made in','產地'],{not:['yarn']});
-  add('fds_date','FDS 送出日期','自動',['submit date','fds date','issue date','填表日期'],{type:'date',auto:true});
-  add('price','單價','商務',['unit price','fabric price','price','單價','價格'],{not:['valid','surcharge','until']});
+  add('fds_date','FDS 送出日期','自動',['submit date','fds date','issue date','date completed','completed date','填表日期'],{type:'date',auto:true});
+
+  add('price','單價（大貨）','商務',['unit price','bulk price','fabric price','price','單價','價格'],{not:['valid','surcharge','until','sample','tier','pricing']});
+  add('sample_price','樣布單價','商務',['sample price','樣布單價']);
   add('price_valid','報價有效期','商務',['price valid','valid until','validity','有效期'],{type:'date'});
-  add('sample_moq','樣布 MOQ / MCQ','商務',['sample moq','sample mcq','sample minimum','樣布最低'],{not:['surcharge','lead']});
+  add('port','出貨港','商務',['port of departure','port of loading','loading port','departure port','出貨港']);
+  add('sample_moq','樣布 MOQ / MCQ（合併）','商務',['sample moq mcq','sample mcq moq','sample minimum','樣布最低'],{not:['surcharge','lead'],derived:true});
+  add('sample_moq1','樣布 MOQ','商務',['sample moq'],{not:['surcharge','lead','mcq'],derived:true});
+  add('sample_mcq','樣布 MCQ','商務',['sample mcq'],{not:['surcharge','lead','moq'],derived:true});
   add('sample_surcharge','樣布未達量加價','商務',['sample&surcharge','sample&upcharge','樣布&加價']);
-  add('bulk_moq','大貨 MOQ / MCQ','商務',['bulk moq','bulk mcq','production moq','bulk minimum','大貨最低'],{not:['surcharge','lead']});
+  add('bulk_moq','大貨 MOQ / MCQ（合併）','商務',['bulk moq mcq','bulk mcq moq','production moq mcq','bulk minimum','大貨最低'],{not:['surcharge','lead'],derived:true});
+  add('bulk_moq1','大貨 MOQ','商務',['bulk moq','production moq'],{not:['surcharge','lead','mcq'],derived:true});
+  add('bulk_mcq','大貨 MCQ','商務',['bulk mcq','production mcq'],{not:['surcharge','lead','moq'],derived:true});
   add('bulk_surcharge','大貨未達量加價','商務',['bulk&surcharge','bulk&upcharge','production&surcharge','大貨&加價']);
-  add('sample_lt','樣布交期','商務',['sample lead time','sample lt','sample delivery','樣布交期']);
-  add('bulk_lt','大貨交期','商務',['bulk lead time','production lead time','bulk lt','bulk delivery','大貨交期']);
+  add('sample_lt','樣布交期（無胚 / 有胚，合併）','商務',['sample lead time&without greige&with greige','sample lead time','sample lt','sample delivery','樣布交期'],{derived:true});
+  add('sample_lt_wo','樣布交期（無胚）','商務',['sample lead time&w o greige','sample lead time&without greige','sample lead time&no greige'],{derived:true});
+  add('sample_lt_w','樣布交期（有胚）','商務',['sample lead time&w greige','sample lead time&with greige'],{derived:true});
+  add('bulk_lt','大貨交期（無胚 / 有胚，合併）','商務',['bulk lead time&without greige&with greige','bulk lead time','production lead time','bulk lt','bulk delivery','大貨交期'],{derived:true});
+  add('bulk_lt_wo','大貨交期（無胚）','商務',['bulk lead time&w o greige','bulk lead time&without greige','bulk lead time&no greige'],{derived:true});
+  add('bulk_lt_w','大貨交期（有胚）','商務',['bulk lead time&w greige','bulk lead time&with greige'],{derived:true});
   add('greige_avail','有無胚布庫存','商務',['greige avail','greige stock','胚布']);
   add('sy_avail','可提供樣碼','商務',['s y avail','sample yardage','sample yard','樣碼']);
+
   add('composition','成分','規格',['fibre composition','fiber composition','fabric composition','composition','fibre content','fiber content','content','成分'],{not:['yarn']});
+  add('fiber_pct','成分比例','規格',['fiber content&%','fibre content&%','content&%','成分比例'],{derived:true,extra:true});
+  add('fiber_names','纖維名稱','規格',['fiber name','fibre name','纖維名稱'],{derived:true,extra:true});
   add('weight_gsm','克重','規格',['weight','gsm','g m2','克重']);
   add('construction','組織大類','規格',['fabric construction','construction','knit woven','結構']);
-  add('width_in','幅寬 (inch)','規格',['width&inch','width&in','width','幅寬']);
-  add('width_cm','幅寬 (cm)','規格',['width&cm','幅寬&cm']);
+  add('classification','布種分類','規格',['classification','fabric type','分類'],{derived:true,extra:true});
+  add('con_knit','勾選：Knit','自動',[],{type:'bool',derived:true,check:'knit'});
+  add('con_warpknit','勾選：Warp Knit','自動',[],{type:'bool',derived:true,check:'warpknit'});
+  add('con_woven','勾選：Woven','自動',[],{type:'bool',derived:true,check:'woven'});
+  add('con_nonwoven','勾選：Non Woven','自動',[],{type:'bool',derived:true,check:'nonwoven'});
+  add('width_in','可裁幅寬 (inch)','規格',['cuttable width&inch','usable width&inch','width&inch','width&in','width','幅寬'],{not:['open','full'],derived:true});
+  add('width_cm','可裁幅寬 (cm)','規格',['cuttable width&cm','width&cm','幅寬&cm'],{not:['open','full'],derived:true});
+  add('open_width_in','全幅 / 開幅 (inch)','規格',['open width','full width','total width','全幅'],{extra:true});
   add('structure','組織名稱','規格',['fabric structure','structure','knit type','組織']);
   add('shrinkage','縮率','規格',['shrinkage','縮率']);
-  add('dye_method','染色方式','規格',['dyeing method','dye method','dyeing process','染色方式']);
+  add('dye_method','染色方式','規格',['dyeing method','dye method','dyeing process','dye process','染色方式']);
   add('dye_type','染料種類','規格',['dye type','dyestuff','dye class','染料']);
-  add('print_method','印花方式','規格',['printing','print method','印花']);
+  add('additives','助劑 / 固色劑','規格',['additive','fixing agent','助劑'],{extra:true});
+  add('print_method','印花方式','規格',['printing','print method','print process','印花']);
   add('coating','塗層','規格',['coating','塗層']);
   add('mech_finish','物理加工','規格',['mechanical finish','mech finish','physical finish','物理加工']);
   add('lamination','貼合','規格',['lamination','laminat','bonding','貼合']);
-  add('chem_finish','化學加工','規格',['chemical finish','chem finish','finishing','finish','化學加工','後加工'],{not:['mechanical','mech','physical']});
-  add('attribute','功能特性','規格',['attribute','function','performance claim','功能']);
-  add('wash_care','建議洗標','規格',['wash care','care instruction','care label','washing instruction','洗標','洗滌']);
+  add('chem_finish','化學加工','規格',['chemical finish','chem finish','finishing','finish','化學加工','後加工'],{not:['mechanical','mech','physical','name','supplier']});
+  add('chem_finish_name','化學加工品名','規格',['chemical finish name','finish name','加工劑名稱'],{extra:true});
+  add('chem_finish_supplier','化學加工供應商','規格',['chemical finish supplier','finish supplier','加工劑供應商'],{extra:true});
+  add('attribute','功能特性','規格',['attribute','performance propert','function','performance claim','功能']);
+  add('wash_care','建議洗標','規格',['wash care','care instruction','care label','washing instruction','suggested care','mill care','洗標','洗滌'],{not:['code','final']});
   add('machine_dia','針筒直徑','針織參數',['machine diameter','machine dia','cylinder','針筒']);
   add('gauge','針距','針織參數',['gauge','針距','針數']);
   add('cpi','Courses / inch','針織參數',['courses','cpi','橫密']);
   add('wpi','Wales / inch','針織參數',['wales','wpi','縱密']);
   add('epi','Ends / inch','梭織參數',['ends','epi','warp density','經密']);
   add('ppi','Picks / inch','梭織參數',['picks','ppi','weft density','緯密']);
+  add('epi_cpi','EPI / CPI','自動',['epi cpi','cpi epi'],{derived:true});
+  add('ppi_wpi','PPI / WPI','自動',['ppi wpi','wpi ppi'],{derived:true});
+  add('test_report','測試報告編號','其他',['sgs report','test report','report number','report no','測試報告'],{extra:true});
 
   const YARN_COLS=[
     ['pct','比例 %',['composition','content','ratio','percent','比例']],
@@ -528,11 +556,13 @@ const FDS = (function(){
     add('t_'+k+'_grade',zh+' 結果','測試',[],{table:{row:rs,col:['grade','result','rating','結果']},test:k});
     add('t_'+k+'_method',zh+' 方法','測試',[],{table:{row:rs,col:['method','test method','standard','方法']},test:k});
   });
-  add('comments','其他備註','其他',['other comment','comment','remark','note','備註']);
+  add('comments','其他備註','其他',['other comment','general comment','remark','備註']);
 
   const BY_KEY={};F.forEach(f=>BY_KEY[f.key]=f);
   const COMMERCIAL=F.filter(f=>f.cat==='商務').map(f=>f.key);
   const CATS=['基本','規格','針織參數','梭織參數','紗線','測試','其他'];
+  const isCustom=k=>String(k).startsWith('x_');
+  const isQuoteKey=k=>COMMERCIAL.includes(k)||isCustom(k);
 
   /* ── 文字處理 ── */
   const CJK=/[㐀-鿿]/;
@@ -541,6 +571,7 @@ const FDS = (function(){
   function phraseHit(label,ph){ // 回傳比對長度（0 = 沒中）
     const parts=ph.split('&');let len=0;
     for(const p of parts){
+      if(p==='%'){if(!String(label).includes('%'))return 0;len+=1;continue;}
       if(CJK.test(p)){if(!norm(label).replace(/ /g,'').includes(p))return 0;len+=p.length*2;continue;}
       const lt=toks(label),pt=toks(p);if(!pt.length)return 0;let ok=false;
       for(let i=0;i+pt.length<=lt.length&&!ok;i++){
@@ -561,12 +592,13 @@ const FDS = (function(){
 
   /* ── 儲存格工具 ── */
   function colName(n){let s='';while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26);}return s;}
+  function colNum(s){let n=0;for(const ch of s)n=n*26+(ch.charCodeAt(0)-64);return n;}
   function cellVal(v){
     if(v==null)return null;
     if(v instanceof Date)return v;
     if(typeof v==='object'){
       if(v.richText)return v.richText.map(r=>r.text).join('');
-      if('result' in v)return cellVal(v.result);
+      if('result' in v||'formula' in v||'sharedFormula' in v)return v.result==null?null:cellVal(v.result);
       if(v.text!=null)return typeof v.text==='object'?cellVal(v.text):v.text;
       if(v.error)return null;
     }
@@ -574,26 +606,27 @@ const FDS = (function(){
   }
   function isEmpty(v){v=cellVal(v);return v==null||(typeof v==='string'&&v.trim()==='');}
   function mergeOf(ws,addr){ // 回傳該格所在合併範圍 {top,left,bottom,right}
-    const c=ws.getCell(addr);const m=c.isMerged?c.master:c;const r={top:m.row,left:m.col,bottom:m.row,right:m.col};
-    const ranges=(ws.model&&ws.model.merges)||[];
-    for(const rg of ranges){
+    const c=ws.getCell(addr);const m=c.isMerged?c.master:c;
+    for(const rg of ((ws.model&&ws.model.merges)||[])){
       const mm=rg.match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);if(!mm)continue;
-      const l=colNum(mm[1]),t=+mm[2],rr=colNum(mm[3]),b=+mm[4];
-      if(t===m.row&&l===m.col)return {top:t,left:l,bottom:b,right:rr};
+      if(+mm[2]===m.row&&colNum(mm[1])===m.col)return {top:+mm[2],left:colNum(mm[1]),bottom:+mm[4],right:colNum(mm[3])};
     }
-    return r;
+    return {top:m.row,left:m.col,bottom:m.row,right:m.col};
   }
-  function colNum(s){let n=0;for(const ch of s)n=n*26+(ch.charCodeAt(0)-64);return n;}
   function labelCells(wb){
     const out=[];
     wb.eachSheet(ws=>{
-      let maxCol=0;
-      ws.eachRow({includeEmpty:false},row=>row.eachCell({includeEmpty:false},c=>{if(!isEmpty(c.value)&&c.col>maxCol)maxCol=c.col;}));
+      const own=[];let maxCol=0;
       ws.eachRow({includeEmpty:false},row=>row.eachCell({includeEmpty:false},c=>{
         if(c.isMerged&&c.master.address!==c.address)return;
+        if(c.value&&typeof c.value==='object'&&('formula' in c.value||'sharedFormula' in c.value))return;
         const v=cellVal(c.value);
-        if(typeof v==='string'&&/[a-zA-Z㐀-鿿]/.test(v))out.push({ws,sheet:ws.name,addr:c.address,row:c.row,col:c.col,text:v.trim(),maxCol});
+        if(typeof v==='string'&&/[a-zA-Z㐀-鿿]/.test(v)){
+          own.push({ws,sheet:ws.name,addr:c.address,row:c.row,col:c.col,text:v.trim()});
+          const m=mergeOf(ws,c.address);if(m.right>maxCol)maxCol=m.right;
+        }
       }));
+      own.forEach(o=>o.maxCol=maxCol);out.push(...own);
     });
     return out;
   }
@@ -603,14 +636,11 @@ const FDS = (function(){
     const labels=labelCells(wb);
     const mapping={};const used=new Set();
     // 1) 表格型欄位（紗線、測試）：列標籤 × 上方最近的欄標題
-    const tableFields=F.filter(f=>f.table);
-    for(const f of tableFields){
+    for(const f of F.filter(f=>f.table)){
       let best=null;
       for(const L of labels){
         const rs=bestScore(L.text,f.table.row);if(!rs)continue;
-        if(f.yarn){ // 「Yarn 1」必須剛好是這個號碼
-          const t=norm(L.text).replace(/ /g,'');if(!new RegExp('^(yarn|紗)'+f.yarn+'$').test(t))continue;
-        }
+        if(f.yarn){const t=norm(L.text).replace(/ /g,'');if(!new RegExp('^(yarn|紗)'+f.yarn+'$').test(t))continue;}
         const heads=labels.filter(H=>H.sheet===L.sheet&&H.row<L.row&&H.col>L.col&&bestScore(H.text,f.table.col));
         if(!heads.length)continue;
         const hr=Math.max(...heads.map(h=>h.row));
@@ -619,20 +649,21 @@ const FDS = (function(){
         if(!best||score>best.score)best={score,L,H:cand.h};
       }
       if(best){
-        const addr=colName(best.H.col)+best.L.row;
-        mapping[f.key]={cell:best.L.sheet+'!'+addr,label:best.L.text+' × '+best.H.text};
+        mapping[f.key]={cell:best.L.sheet+'!'+colName(best.H.col)+best.L.row,label:best.L.text+' × '+best.H.text};
         used.add(best.L.sheet+'!'+best.L.addr);used.add(best.H.sheet+'!'+best.H.addr);
       }
     }
-    // 2) 一般欄位：標籤右邊的格子（標籤橫跨整列時改用下方）
+    // 2) 一般欄位：標籤右邊的空格；右邊是另一個標籤（表頭列）或超出表格範圍時，改用下方空格
     const cands=[];
     for(const L of labels){
       if(used.has(L.sheet+'!'+L.addr))continue;
-      for(const f of F){
-        if(f.table)continue;
-        const s=bestScore(L.text,f.syn,f.not);if(s)cands.push({f,L,s});
-      }
+      for(const f of F){if(f.table)continue;const s=bestScore(L.text,f.syn,f.not);if(s)cands.push({f,L,s});}
     }
+    // 只在「表單分頁」上對應：參考用分頁（洗標代碼表、纖維清單…）偶爾也會撞到關鍵字
+    const perSheet={};cands.forEach(c=>{(perSheet[c.L.sheet]=perSheet[c.L.sheet]||new Set()).add(c.f.key);});
+    const formSheets=new Set(Object.keys(perSheet).filter(k=>perSheet[k].size>=3));
+    Object.values(mapping).forEach(m=>formSheets.add(splitRef(m.cell)[0]));
+    for(let i=cands.length-1;i>=0;i--)if(!formSheets.has(cands[i].L.sheet)||perSheet[cands[i].L.sheet].size<3)cands.splice(i,1);
     cands.sort((a,b)=>b.s-a.s);
     const takenField=new Set(),takenLabel=new Set(),takenCell=new Set();
     for(const c of cands){
@@ -642,28 +673,40 @@ const FDS = (function(){
       mapping[c.f.key]={cell:c.L.sheet+'!'+tgt,label:c.L.text};
       takenField.add(c.f.key);takenLabel.add(id);takenCell.add(c.L.sheet+'!'+tgt);used.add(id);
     }
+    // 3) 有「分類」欄時，單獨叫 Construction 的欄位其實是組織名稱（例如 Jersey、Interlock）
+    if(mapping.classification&&mapping.construction&&!mapping.structure&&norm(mapping.construction.label)==='construction'){
+      mapping.structure=mapping.construction;delete mapping.construction;
+    }
+    // 4) 勾選框：從 =IF(O3=TRUE,"Knit") 這類公式找出連結儲存格
+    wb.eachSheet(ws=>ws.eachRow({includeEmpty:false},row=>row.eachCell({includeEmpty:false},c=>{
+      const fo=c.value&&typeof c.value==='object'&&c.value.formula;if(!fo)return;
+      const re=/IF\(\s*\$?([A-Z]{1,3})\$?(\d+)\s*=\s*TRUE\s*,\s*"([^"]+)"/gi;let m;
+      while((m=re.exec(fo))){
+        const kind=m[3].toLowerCase().replace(/[^a-z]/g,'');
+        const f=F.find(x=>x.check===kind);
+        if(f&&!mapping[f.key])mapping[f.key]={cell:ws.name+'!'+m[1].toUpperCase()+m[2],label:'勾選框：'+m[3]};
+      }
+    })));
     const mappedCells=new Set(Object.values(mapping).map(m=>m.cell));
-    const unmapped=labels.filter(L=>!used.has(L.sheet+'!'+L.addr)&&targetOf(L)&&!mappedCells.has(L.sheet+'!'+targetOf(L)))
-      .map(L=>({cell:L.sheet+'!'+L.addr,text:L.text}));
+    const unmapped=labels.filter(L=>!used.has(L.sheet+'!'+L.addr)&&formSheets.has(L.sheet)&&L.text.length<=60).map(L=>({cell:L.sheet+'!'+L.addr,text:L.text,target:targetOf(L)?L.sheet+'!'+targetOf(L):''}))
+      .filter(u=>u.target&&!mappedCells.has(u.target));
     return {mapping,unmapped};
   }
   function targetOf(L){
     const ws=L.ws;const m=mergeOf(ws,L.addr);
     const right=m.right+1;
-    if(right<=L.maxCol){
-      const a=colName(right)+m.top;const c=ws.getCell(a);
-      if(isEmpty(c.value)||!(typeof cellVal(c.value)==='string'&&/[a-zA-Z]{3,}/.test(cellVal(c.value))&&!c.isMerged))return a;
-      return null;
-    }
-    const a=colName(m.left)+(m.bottom+1);
-    return isEmpty(ws.getCell(a).value)?a:null;
+    if(right<=L.maxCol){const a=colName(right)+m.top;if(isEmpty(ws.getCell(a).value))return a;}
+    const b=colName(m.left)+(m.bottom+1);
+    return isEmpty(ws.getCell(b).value)?b:null;
   }
 
   /* ── 從已填好的 FDS 讀值 ── */
   function fmtDate(d){return d.getUTCFullYear()+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');}
+  function splitRef(ref){const i=ref.lastIndexOf('!');return [ref.slice(0,i).replace(/^'|'$/g,''),ref.slice(i+1).replace(/\$/g,'').toUpperCase()];}
   function extract(wb,mapping){
     const out={};
     for(const [k,m] of Object.entries(mapping)){
+      const f=BY_KEY[k];if(f&&f.check)continue; // 勾選框由組織大類推導，不匯入
       const [sh,addr]=splitRef(m.cell);const ws=wb.getWorksheet(sh);if(!ws)continue;
       let v=cellVal(ws.getCell(addr).value);
       if(v==null||(typeof v==='string'&&!v.trim()))continue;
@@ -672,34 +715,160 @@ const FDS = (function(){
     }
     return out;
   }
-  function splitRef(ref){const i=ref.lastIndexOf('!');return [ref.slice(0,i).replace(/^'|'$/g,''),ref.slice(i+1).replace(/\$/g,'').toUpperCase()];}
 
-  /* ── 推導欄位（例如幅寬 inch ↔ cm）── */
+  /* ── 推導欄位：不同客戶要的拆法不同，主檔只存一份，填表時自動拆或合 ── */
   function num(v){if(typeof v==='number')return v;const m=String(v==null?'':v).match(/-?\d+(\.\d+)?/);return m?parseFloat(m[0]):NaN;}
+  function isBlank(v){return v==null||String(v).trim()==='';}
+  function partOf(text,tag){const m=String(text||'').match(new RegExp(tag+'\\s*[-:：]?\\s*([^\\n\\/]+)','i'));return m?m[1].trim():'';}
+  function halves(text){const p=String(text||'').split('/');return p.length===2?[p[0].trim(),p[1].trim()]:null;}
   function derive(vals){
     const v=Object.assign({},vals);
     if(isBlank(v.width_cm)&&!isBlank(v.width_in)&&!isNaN(num(v.width_in)))v.width_cm=Math.round(num(v.width_in)*2.54);
     if(isBlank(v.width_in)&&!isBlank(v.width_cm)&&!isNaN(num(v.width_cm))&&!/["”]|inch/i.test(String(v.width_cm)))v.width_in=Math.round(num(v.width_cm)/2.54);
+    if(isBlank(v.width_in)&&/["”]|inch/i.test(String(v.width_cm||'')))v.width_in=num(v.width_cm);
+    for(const p of ['sample','bulk']){
+      const c=p+'_moq',a=p+'_moq1',b=p+'_mcq';
+      if(!isBlank(v[c])){if(isBlank(v[a])&&partOf(v[c],'MOQ'))v[a]=partOf(v[c],'MOQ');if(isBlank(v[b])&&partOf(v[c],'MCQ'))v[b]=partOf(v[c],'MCQ');}
+      else if(!isBlank(v[a])||!isBlank(v[b]))v[c]=[!isBlank(v[a])?'MOQ: '+v[a]:'',!isBlank(v[b])?'MCQ: '+v[b]:''].filter(Boolean).join(' / ');
+      const L=p+'_lt',wo=p+'_lt_wo',w=p+'_lt_w';
+      if(!isBlank(v[L])){const h=halves(v[L]);if(h){if(isBlank(v[wo]))v[wo]=h[0];if(isBlank(v[w]))v[w]=h[1];}}
+      else if(!isBlank(v[wo])||!isBlank(v[w]))v[L]=(v[wo]||'—')+' / '+(v[w]||'—');
+    }
+    const comp=String(v.composition||'');const pairs=[...comp.matchAll(/(\d+(?:\.\d+)?)\s*%\s*([A-Za-z㐀-鿿][A-Za-z㐀-鿿 \-]*)/g)];
+    if(pairs.length){
+      if(isBlank(v.fiber_pct))v.fiber_pct=pairs.map(p=>p[1]).join('/');
+      if(isBlank(v.fiber_names))v.fiber_names=pairs.map(p=>p[2].trim()).join('/');
+    }
+    const con=String(v.construction||'').toLowerCase();
+    if(con){
+      const kind=/warp/.test(con)?'warpknit':/non\s*woven/.test(con)?'nonwoven':/woven/.test(con)?'woven':/knit|circular|weft/.test(con)?'knit':'';
+      if(kind){
+        if(isBlank(v.classification))v.classification={knit:'Circular Knit',warpknit:'Warp Knit',woven:'Woven',nonwoven:'Non Woven'}[kind];
+        F.filter(f=>f.check).forEach(f=>{v[f.key]=f.check===kind;});
+      }
+      const woven=kind==='woven';
+      if(isBlank(v.epi_cpi)&&!isBlank(woven?v.epi:v.cpi))v.epi_cpi=woven?v.epi:v.cpi;
+      if(isBlank(v.ppi_wpi)&&!isBlank(woven?v.ppi:v.wpi))v.ppi_wpi=woven?v.ppi:v.wpi;
+    }
     return v;
   }
-  function isBlank(v){return v==null||String(v).trim()==='';}
 
-  /* ── 把值寫進範本 ── */
-  function fill(wb,mapping,vals,today){
-    const v=derive(vals);
-    if(isBlank(v.fds_date))v.fds_date=today||fmtDate(new Date());
-    let n=0;
-    for(const [k,m] of Object.entries(mapping)){
-      if(isBlank(v[k]))continue;
-      const [sh,addr]=splitRef(m.cell);const ws=wb.getWorksheet(sh);if(!ws)continue;
-      const cell=ws.getCell(addr);let val=v[k];const f=BY_KEY[k];
-      if(f&&f.type==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(val))){
-        const [y,mo,d]=String(val).split('-').map(Number);val=new Date(Date.UTC(y,mo-1,d));
-        if(!cell.numFmt||cell.numFmt==='General')cell.numFmt='yyyy/m/d';
-      } else if(typeof val==='string'&&/^-?\d+(\.\d+)?$/.test(val.trim()))val=Number(val.trim());
-      cell.value=val;n++;
+  /* ── 把值寫進範本：直接改 xlsx 裡要填的儲存格，其他內容（勾選框、下拉選單、圖片、巨集設定）一律不動 ── */
+  const NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const NOFOLD={createFolders:false};
+  const DATE_FMT_IDS=new Set([14,15,16,17,18,19,20,21,22,45,46,47]);
+  function excelSerial(ymd){const [y,m,d]=ymd.split('-').map(Number);return (Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000;}
+  async function fillXlsx(buf,mapping,vals,today,deps){
+    deps=deps||{};
+    const JZ=deps.JSZip||(typeof JSZip!=='undefined'?JSZip:null);
+    const DP=deps.DOMParser||(typeof DOMParser!=='undefined'?DOMParser:null);
+    const XS=deps.XMLSerializer||(typeof XMLSerializer!=='undefined'?XMLSerializer:null);
+    const zip=await JZ.loadAsync(buf,{createFolders:false});
+    const parse=s=>new DP().parseFromString(s,'application/xml');
+    const ser=d=>new XS().serializeToString(d);
+    const v=derive(vals);if(isBlank(v.fds_date))v.fds_date=today||fmtDate(new Date());
+    // 分頁名稱 → 檔案路徑
+    const wbDoc=parse(await zip.file('xl/workbook.xml').async('string'));
+    const rels=parse(await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+    const relMap={};Array.from(rels.getElementsByTagName('Relationship')).forEach(r=>relMap[r.getAttribute('Id')]=r.getAttribute('Target'));
+    const sheetPath={};
+    Array.from(wbDoc.getElementsByTagName('sheet')).forEach(s=>{
+      const rid=s.getAttribute('r:id')||s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+      let t=relMap[rid]||'';t=t.startsWith('/')?t.slice(1):'xl/'+t.replace(/^\.\//,'');sheetPath[s.getAttribute('name')]=t;
+    });
+    // 哪些樣式是日期格式
+    const stDoc=zip.file('xl/styles.xml')?parse(await zip.file('xl/styles.xml').async('string')):null;
+    const dateStyles=new Set();
+    if(stDoc){
+      const custom={};Array.from(stDoc.getElementsByTagName('numFmt')).forEach(n=>custom[n.getAttribute('numFmtId')]=n.getAttribute('formatCode')||'');
+      const xfsEl=stDoc.getElementsByTagName('cellXfs')[0];
+      if(xfsEl)Array.from(xfsEl.childNodes).filter(x=>x.nodeType===1).forEach((x,i)=>{const id=+x.getAttribute('numFmtId');const code=(custom[id]||'').replace(/"[^"]*"|\[[^\]]*\]/g,'');if(DATE_FMT_IDS.has(id)||/[dy]/i.test(code))dateStyles.add(String(i));});
     }
-    return n;
+    // 範本該格不是日期格式時，複製一份它原本的樣式、只把數字格式改成日期（框線字型都不變）
+    const xfMemo={};let stylesDirty=false;
+    function dateXf(sIdx){
+      if(sIdx in xfMemo)return xfMemo[sIdx];
+      const xfsEl=stDoc&&stDoc.getElementsByTagName('cellXfs')[0];if(!xfsEl)return xfMemo[sIdx]=null;
+      const list=Array.from(xfsEl.childNodes).filter(x=>x.nodeType===1);const src=list[+sIdx];if(!src)return xfMemo[sIdx]=null;
+      const cl=src.cloneNode(true);cl.setAttribute('numFmtId','14');cl.setAttribute('applyNumberFormat','1');
+      xfsEl.appendChild(cl);xfsEl.setAttribute('count',String(list.length+1));
+      const ni=String(list.length);dateStyles.add(ni);stylesDirty=true;return xfMemo[sIdx]=ni;
+    }
+    const docs={};let removedFormula=false;const bools=[];let n=0;
+    for(const [k,m] of Object.entries(mapping)){
+      let val=v[k];if(isBlank(val)&&typeof val!=='boolean')continue;
+      const [sh,addr]=splitRef(m.cell);const path=sheetPath[sh];if(!path||!zip.file(path))continue;
+      const doc=docs[path]||(docs[path]=parse(await zip.file(path).async('string')));
+      const c=getCell(doc,addr);
+      if(c.getElementsByTagName('f').length)removedFormula=true;
+      while(c.firstChild)c.removeChild(c.firstChild);c.removeAttribute('t');
+      const f=BY_KEY[k];
+      if(typeof val==='boolean'){c.setAttribute('t','b');addChild(doc,c,'v',val?'1':'0');bools.push({sh,addr,val});}
+      else if(f&&f.type==='date'&&/^\d{4}-\d{2}-\d{2}$/.test(String(val))){
+        const sIdx=c.getAttribute('s')||'0';
+        if(!dateStyles.has(sIdx)){const ni=dateXf(sIdx);if(ni!=null)c.setAttribute('s',ni);}
+        if(dateStyles.has(c.getAttribute('s')||'0'))addChild(doc,c,'v',String(excelSerial(String(val))));
+        else setStr(doc,c,String(val).replace(/-/g,'/'));
+      }
+      else if(typeof val==='number'||(typeof val==='string'&&/^-?\d+(\.\d+)?$/.test(val.trim())))addChild(doc,c,'v',String(Number(val)));
+      else setStr(doc,c,String(val));
+      n++;
+    }
+    for(const [p,d] of Object.entries(docs))zip.file(p,ser(d),NOFOLD);
+    if(stylesDirty)zip.file('xl/styles.xml',ser(stDoc),NOFOLD);
+    // 勾選框：同步表單控制項的勾選狀態
+    if(bools.length){
+      for(const name of Object.keys(zip.files)){
+        if(/^xl\/ctrlProps\/.*\.xml$/.test(name)){
+          let s=await zip.file(name).async('string');
+          for(const b of bools){
+            const re=new RegExp('fmlaLink="(?:[^"!]*!)?\\$?'+b.addr.replace(/(\d+)/,'\\$?$1')+'"');
+            if(re.test(s)){s=s.replace(/\schecked="[^"]*"/,'');if(b.val)s=s.replace(/<formControlPr\b/,'<formControlPr checked="Checked"');}
+          }
+          zip.file(name,s,NOFOLD);
+        } else if(/^xl\/drawings\/.*\.vml$/.test(name)){
+          let s=await zip.file(name).async('string');
+          for(const b of bools){
+            const link='$'+b.addr.replace(/(\d+)/,d=>'$'+d);
+            s=s.replace(/<x:ClientData ObjectType="Checkbox">[\s\S]*?<\/x:ClientData>/g,blk=>{
+              if(!blk.includes('<x:FmlaLink>'+link+'</x:FmlaLink>'))return blk;
+              blk=blk.replace(/\s*<x:Checked>[^<]*<\/x:Checked>/g,'');
+              return b.val?blk.replace('</x:ClientData>','<x:Checked>1</x:Checked></x:ClientData>'):blk;
+            });
+          }
+          zip.file(name,s,NOFOLD);
+        }
+      }
+    }
+    // 開檔時重新計算公式
+    let calc=wbDoc.getElementsByTagName('calcPr')[0];
+    if(!calc){calc=wbDoc.createElementNS(NS,'calcPr');wbDoc.documentElement.appendChild(calc);}
+    calc.setAttribute('fullCalcOnLoad','1');zip.file('xl/workbook.xml',ser(wbDoc),NOFOLD);
+    if(removedFormula&&zip.file('xl/calcChain.xml')){
+      zip.remove('xl/calcChain.xml');
+      Array.from(rels.getElementsByTagName('Relationship')).forEach(r=>{if(/calcChain/.test(r.getAttribute('Target')))r.parentNode.removeChild(r);});
+      zip.file('xl/_rels/workbook.xml.rels',ser(rels),NOFOLD);
+      const ct=parse(await zip.file('[Content_Types].xml').async('string'));
+      Array.from(ct.getElementsByTagName('Override')).forEach(o=>{if(/calcChain/.test(o.getAttribute('PartName')))o.parentNode.removeChild(o);});
+      zip.file('[Content_Types].xml',ser(ct),NOFOLD);
+    }
+    const out=await zip.generateAsync({type:'uint8array',compression:'DEFLATE'});
+    return {data:out,written:n};
+  }
+  function addChild(doc,parent,tag,text){const e=doc.createElementNS(NS,tag);if(text!=null)e.appendChild(doc.createTextNode(text));parent.appendChild(e);return e;}
+  function setStr(doc,c,text){c.setAttribute('t','inlineStr');const is=addChild(doc,c,'is');const t=addChild(doc,is,'t',text);t.setAttribute('xml:space','preserve');}
+  function getCell(doc,addr){
+    const m=addr.match(/^([A-Z]+)(\d+)$/);const col=colNum(m[1]),rowN=+m[2];
+    const sd=doc.getElementsByTagName('sheetData')[0];
+    let row=null,before=null;
+    for(const r of Array.from(sd.childNodes)){if(r.nodeType!==1)continue;const rn=+r.getAttribute('r');if(rn===rowN){row=r;break;}if(rn>rowN){before=r;break;}}
+    if(!row){row=doc.createElementNS(NS,'row');row.setAttribute('r',String(rowN));sd.insertBefore(row,before);}
+    let cb=null;
+    for(const c of Array.from(row.childNodes)){
+      if(c.nodeType!==1)continue;const a=c.getAttribute('r');if(a===addr)return c;
+      if(colNum(a.replace(/\d+/g,''))>col){cb=c;break;}
+    }
+    const c=doc.createElementNS(NS,'c');c.setAttribute('r',addr);row.insertBefore(c,cb);return c;
   }
 
   /* ── 檢查：缺漏與矛盾 ── */
@@ -707,36 +876,37 @@ const FDS = (function(){
     const v=derive(vals);const issues=[];today=today||fmtDate(new Date());
     const mapped=mapping?Object.keys(mapping):F.map(f=>f.key);
     const lab=k=>(mapping&&mapping[k]&&mapping[k].label)||'';
-    // 缺漏
     const yarnUsed=i=>['pct','count','supplier'].some(c=>!isBlank(v['yarn'+i+'_'+c]));
     const testKeys=mapped.filter(k=>BY_KEY[k]&&BY_KEY[k].cat==='測試');
     const testsEmpty=testKeys.length&&testKeys.every(k=>isBlank(v[k]));
     if(testsEmpty)issues.push({type:'missing',key:'tests',msg:'測試資料全部空白（'+testKeys.length+' 格）'});
     for(const k of mapped){
-      const f=BY_KEY[k];if(!f||f.auto||k==='comments')continue;
+      const f=BY_KEY[k];if(!f||f.auto||f.check||k==='comments')continue;
       if(f.cat==='測試'&&testsEmpty)continue;
       if(f.yarn&&!yarnUsed(f.yarn))continue;
       if(['epi','ppi'].includes(k)&&/knit/i.test(String(v.construction||'')))continue;
       if(['machine_dia','gauge','cpi','wpi'].includes(k)&&/woven/i.test(String(v.construction||'')))continue;
       if(isBlank(v[k]))issues.push({type:'missing',key:k,msg:f.label+' 未填'});
     }
-    // 矛盾
     const wc=String(v.wash_care||'');const t=wc.match(/(\d{2})\s*[º°˚o]?\s*c/i);
     if(/cold/i.test(wc)&&t&&+t[1]>30)issues.push({type:'warn',key:'wash_care',msg:'洗標寫 COLD WASH，卻標示 '+t[1]+'ºC（cold 一般指 30ºC 以下）'});
-    ['sample_lt','bulk_lt'].forEach(k=>{if(/(^|[\s\/])-\s*\d/.test(String(v[k]||'')))issues.push({type:'warn',key:k,msg:BY_KEY[k].label+' 出現負號：「'+v[k]+'」'});});
-    if(!isBlank(v.price)&&/fob/i.test(lab('price'))&&!/fob/i.test(String(v.price)))issues.push({type:'warn',key:'price',msg:'此格式要求 FOB 港口，單價未註明港口'});
-    const wl=lab('width_cm');
+    ['sample_lt','bulk_lt','sample_lt_w','sample_lt_wo','bulk_lt_w','bulk_lt_wo'].forEach(k=>{if(mapped.includes(k)&&/(^|[\s\/])-\s*\d/.test(String(v[k]||'')))issues.push({type:'warn',key:k,msg:BY_KEY[k].label+' 出現負號：「'+v[k]+'」'});});
+    if(!isBlank(v.price)&&/fob/i.test(lab('price'))&&!/fob/i.test(String(v.price))&&isBlank(v.port))issues.push({type:'warn',key:'price',msg:'此格式要求 FOB 港口，單價未註明港口'});
+    ['price','sample_price'].forEach(k=>{
+      if(!mapping||!mapping[k]||isBlank(v[k]))return;const L=lab(k),val=String(v[k]);
+      if(/\byd\b|yard/i.test(L)&&/\/\s*m\b|per\s*m(eter|etre)?\b|\/\s*mtr/i.test(val))issues.push({type:'warn',key:k,msg:BY_KEY[k].label+'：此格式以碼計價（$/YD），填的是每米價格「'+val+'」（1 m = 1.0936 yd）'});
+      if(/\/\s*m\b|meter|metre/i.test(L)&&/yd|yard/i.test(val))issues.push({type:'warn',key:k,msg:BY_KEY[k].label+'：此格式以米計價（$/m），填的是每碼價格「'+val+'」'});
+    });
     if(mapping&&mapping.width_cm&&!isBlank(vals.width_cm)&&/["”]|inch/i.test(String(vals.width_cm)))issues.push({type:'warn',key:'width_cm',msg:'幅寬欄位要求 cm，填的是「'+vals.width_cm+'」（inch）'});
     const comp=String(v.composition||'');const pcs=(comp.match(/\d+(\.\d+)?\s*%/g)||[]).map(x=>parseFloat(x));
     if(pcs.length&&Math.abs(pcs.reduce((a,b)=>a+b,0)-100)>0.5)issues.push({type:'warn',key:'composition',msg:'成分比例加總為 '+pcs.reduce((a,b)=>a+b,0)+'%'});
     const yp=[1,2,3,4].map(i=>num(v['yarn'+i+'_pct'])).filter(x=>!isNaN(x));
     if(yp.length&&Math.abs(yp.reduce((a,b)=>a+b,0)-100)>0.5)issues.push({type:'warn',key:'yarn1_pct',msg:'紗線比例加總為 '+yp.reduce((a,b)=>a+b,0)+'%'});
     if(/^\d{4}-\d{2}-\d{2}$/.test(String(v.price_valid||''))&&v.price_valid<today)issues.push({type:'warn',key:'price_valid',msg:'報價有效期已過（'+v.price_valid+'）'});
-    void wl;
     return issues;
   }
 
-  return {FIELDS:F,BY_KEY,COMMERCIAL,CATS,TESTS,YARN_COLS,autoMap,extract,fill,lint,derive,splitRef,cellVal,fmtDate,norm,phraseHit};
+  return {FIELDS:F,BY_KEY,COMMERCIAL,CATS,TESTS,YARN_COLS,autoMap,extract,fillXlsx,lint,derive,splitRef,cellVal,fmtDate,norm,phraseHit,isCustom,isQuoteKey,isBlank};
 })();
 /* ────────────────────────────────────────────────────────────
    與 Development Tracker 共用同一個 Firebase 專案與登入名單
@@ -754,10 +924,11 @@ const ADMIN_EMAILS=['ches.0301@gmail.com'];
 const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
 const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa','vivianyuyuang@gmail.com':'Vivian','demo@local':'示範使用者'};
 
-const COL={articles:'fds_articles',quotes:'fds_quotes',templates:'fds_templates',logs:'fds_log',dev:'dev_tracker_items'};
+const COL={articles:'fds_articles',quotes:'fds_quotes',templates:'fds_templates',tplfiles:'fds_template_files',logs:'fds_log',dev:'dev_tracker_items'};
 const DEMO=new URLSearchParams(location.search).has('demo');
 const TODAY=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
-const MAX_TEMPLATE_BYTES=700*1024;
+const MAX_TEMPLATE_BYTES=6*1024*1024;  // 範本檔上限 6MB
+const CHUNK_CHARS=700000;               // 資料庫單筆上限 1MB，範本檔切段存放
 
 let currentUserEmail=null;
 let articles=[],quotes=[],templates=[],logs=[];
@@ -811,6 +982,10 @@ const Store={
     if(this.mode==='memory'){if(this.mem[col])delete this.mem[col][id];this._emit(col);return;}
     await this.db.collection(col).doc(id).delete();
   },
+  async get(col,id){
+    if(this.mode==='memory'){const d=(this.mem[col]||{})[id];return d?Object.assign({id},JSON.parse(JSON.stringify(d))):null;}
+    const s=await this.db.collection(col).doc(id).get();return s.exists?Object.assign({id:s.id},s.data()):null;
+  },
   async getAll(col){
     if(this.mode==='memory')return this._list(col);
     return (await this.db.collection(col).get()).docs.map(d=>Object.assign({id:d.id},d.data()));
@@ -832,10 +1007,10 @@ function applyPermissions(){
 function renderAll(){renderArticles();renderTemplates();renderLogs();if(document.getElementById('generate-view').style.display!=='none')renderGenerate();}
 
 /* ════════ 品號主檔 ════════ */
-const SPEC_KEYS=()=>FDS.FIELDS.filter(f=>['基本','規格','針織參數','梭織參數'].includes(f.cat)).map(f=>f.key);
+const SPEC_KEYS=()=>FDS.FIELDS.filter(f=>['基本','規格','針織參數','梭織參數'].includes(f.cat)&&!f.extra&&!f.derived).map(f=>f.key);
 function relevantSpecKeys(fields){
   const knit=/knit/i.test(String(fields.construction||'')),woven=/woven/i.test(String(fields.construction||''));
-  return SPEC_KEYS().filter(k=>!(knit&&['epi','ppi'].includes(k))&&!(woven&&['machine_dia','gauge','cpi','wpi'].includes(k))&&!['width_cm','width_in'].includes(k)).concat(['width']);
+  return SPEC_KEYS().filter(k=>!(knit&&['epi','ppi'].includes(k))&&!(woven&&['machine_dia','gauge','cpi','wpi'].includes(k))).concat(['width']);
 }
 function completeness(a){
   const f=FDS.derive(a.fields||{});const keys=relevantSpecKeys(f);
@@ -874,20 +1049,21 @@ function fieldInput(f,val,opts){
 function markEmpty(el){el.classList.toggle('is-empty',blank(el.value)&&!el.dataset.nomark);}
 function buildArticleForm(fields,ro){
   const v=fields||{};let h='';
-  const groups=[['基本',['mill_name','contact_name','contact_email','mill_address','coo','cs_seamless']],
-    ['規格',['composition','weight_gsm','construction','structure','width_in','width_cm','shrinkage','dye_method','dye_type','print_method','coating','mech_finish','lamination','chem_finish','attribute','wash_care']],
+  const groups=[['基本',['mill_name','contact_name','contact_email','contact_phone','mill_address','coo','cs_seamless']],
+    ['規格',['composition','fiber_pct','fiber_names','weight_gsm','construction','classification','structure','width_in','width_cm','open_width_in','shrinkage','dye_method','dye_type','additives','print_method','coating','mech_finish','lamination','chem_finish','chem_finish_name','chem_finish_supplier','attribute','wash_care']],
     ['針織參數',['machine_dia','gauge','cpi','wpi']],['梭織參數',['epi','ppi']]];
   for(const [g,keys] of groups){
     h+=`<div class="section-label">${g}</div><div class="fgrid">`;
     for(const k of keys){const f=FDS.BY_KEY[k];const wide=['wash_care','attribute','composition'].includes(k)?' span2':'';
-      const opts=k==='width_cm'?{placeholder:'留空＝由 inch 自動換算',noMark:true}:(k==='width_in'?{placeholder:'例如 54（與 cm 擇一填即可）',noMark:true}:{});
+      const AUTO_PH={width_cm:'留空＝由 inch 自動換算',width_in:'例如 54（與 cm 擇一填即可）',fiber_pct:'留空＝由成分自動拆出，例如 76/24',fiber_names:'留空＝由成分自動拆出，例如 NYLON/ELASTANE',classification:'留空＝依組織大類自動帶入，例如 Circular Knit'};
+      const opts=AUTO_PH[k]?{placeholder:AUTO_PH[k],noMark:true}:(f.extra?{noMark:true}:{});
       h+=`<div class="field${wide}"><label>${escHtml(f.label)}</label>${fieldInput(f,v[k],opts)}</div>`;}
     h+='</div>';
   }
   h+='<div class="section-label">紗線</div><div class="tbl-wrap"><table class="grid-table"><tr><th></th>'+FDS.YARN_COLS.map(c=>`<th>${escHtml(c[1])}</th>`).join('')+'</tr>';
   for(let i=1;i<=4;i++)h+=`<tr><td class="rl">紗 ${i}</td>`+FDS.YARN_COLS.map(c=>{const k='yarn'+i+'_'+c[0];return `<td><input data-key="${k}" data-nomark="1" value="${escHtml(v[k])}"></td>`;}).join('')+'</tr>';
   h+='</table></div>';
-  h+='<div class="section-label">測試</div><div class="tbl-wrap"><table class="grid-table"><tr><th>項目</th><th>結果</th><th>方法</th></tr>';
+  h+=`<div class="section-label">測試</div><div class="fgrid"><div class="field"><label>${escHtml(FDS.BY_KEY.test_report.label)}</label>${fieldInput(FDS.BY_KEY.test_report,v.test_report,{noMark:true,placeholder:'例如 SGS TWN-xxxxx'})}</div></div><div class="tbl-wrap"><table class="grid-table"><tr><th>項目</th><th>結果</th><th>方法</th></tr>`;
   for(const [k,zh] of FDS.TESTS)h+=`<tr><td class="rl">${escHtml(zh)}</td><td><input data-key="t_${k}_grade" data-nomark="1" value="${escHtml(v['t_'+k+'_grade'])}"></td><td><input data-key="t_${k}_method" data-nomark="1" value="${escHtml(v['t_'+k+'_method'])}" placeholder="例如 ASTM D3512"></td></tr>`;
   h+='</table></div>';
   h+=`<div class="section-label">其他備註</div><div class="field">${fieldInput(FDS.BY_KEY.comments,v.comments,{noMark:true})}</div>`;
@@ -956,7 +1132,7 @@ function openTemplateModal(id){
   document.getElementById('tpl-client').value=t?t.client:'';
   document.getElementById('tpl-file').value='';
   document.getElementById('tpl-file-label').textContent=t?'更換範本（選填，留空＝沿用 '+(t.fileName||'')+'）':'空白 FDS 範本（.xlsx）*';
-  tplDraft=t?{mapping:JSON.parse(JSON.stringify(t.mapping||{})),unmapped:t.unmapped||[],fileB64:t.fileB64,fileName:t.fileName,wb:null}:null;
+  tplDraft=t?{mapping:JSON.parse(JSON.stringify(t.mapping||{})),unmapped:t.unmapped||[],fileB64:null,keepFile:true,fileName:t.fileName,wb:null}:null;
   renderTemplateMap();
   document.getElementById('tpl-modal-bg').style.display='flex';
 }
@@ -965,9 +1141,9 @@ async function onTemplateFile(ev){
   const file=ev.target.files[0];if(!file)return;
   try{
     const buf=await readFile(file);
-    if(buf.byteLength>MAX_TEMPLATE_BYTES){showToast('✗ 檔案超過 700KB，請先刪除範本中不需要的分頁或圖片');ev.target.value='';return;}
+    if(buf.byteLength>MAX_TEMPLATE_BYTES){showToast('✗ 檔案超過 6MB，請先刪除範本中不需要的分頁或圖片');ev.target.value='';return;}
     const wb=await loadWb(buf);const r=FDS.autoMap(wb);
-    tplDraft={mapping:r.mapping,unmapped:r.unmapped,fileB64:bufToB64(buf),fileName:file.name,wb};
+    tplDraft={mapping:r.mapping,unmapped:r.unmapped,fileB64:bufToB64(buf),keepFile:false,fileName:file.name,wb};
     if(!document.getElementById('tpl-name').value)document.getElementById('tpl-name').value=file.name.replace(/\.xlsx$/i,'');
     renderTemplateMap();
     showToast('✓ 自動辨識出 '+Object.keys(r.mapping).length+' 個欄位，請檢查後儲存');
@@ -978,6 +1154,8 @@ function renderTemplateMap(){
   if(!tplDraft){box.innerHTML='';return;}
   const m=tplDraft.mapping;const n=Object.keys(m).length;
   let h=`<div class="section-label">欄位對應（自動辨識 ${n} 個）</div><div class="hint" style="margin-top:0">儲存格格式：分頁名稱!儲存格，例如 Technical!F19。清空＝這個格式不填該欄位。</div>`;
+  const custom=Object.keys(m).filter(FDS.isCustom);
+  h+=`<details class="map-group" open><summary>此客戶專屬欄位<span class="map-count">${custom.length}</span></summary>`+(custom.length?`<table class="grid-table map-table"><tr><th>欄位（範本上的標籤）</th><th>儲存格</th><th></th></tr>`+custom.map(k=>`<tr><td class="rl">${escHtml(String(m[k].label).replace(/\n/g,' '))}</td><td><input data-mapkey="${k}" value="${escHtml(m[k].cell)}" onchange="onMapEdit(this)"></td><td><a href="#" onclick="removeCustom('${k}');return false">移除</a></td></tr>`).join('')+'</table>':'<div class="hint" style="margin:8px 12px">標準欄位以外、只有這家客戶要填的項目（例如分段報價、捲長、出貨港備註）。從下方「沒有對應到的標籤」按 ＋ 加入。</div>')+'</details>';
   const cats=['基本','自動','商務','規格','針織參數','梭織參數','紗線','測試','其他'];
   for(const c of cats){
     const fs=FDS.FIELDS.filter(f=>f.cat===c);if(!fs.length)continue;
@@ -989,17 +1167,27 @@ function renderTemplateMap(){
   }
   if(tplDraft.unmapped&&tplDraft.unmapped.length){
     h+=`<div class="section-label">範本上沒有對應到的標籤</div><div class="hint" style="margin-top:0">多半是區段標題，可以忽略；若其中有需要填寫的欄位，請在上表手動指定儲存格，或告訴管理員補進欄位字典。</div><div class="chips">`+
-      tplDraft.unmapped.map(u=>`<span class="chip-plain">${escHtml(u.cell)}：${escHtml(String(u.text).replace(/\n/g,' '))}</span>`).join('')+'</div>';
+      tplDraft.unmapped.map((u,i)=>`<span class="chip-plain">${escHtml(u.cell)}：${escHtml(String(u.text).replace(/\n/g,' '))}${u.target&&!Object.values(m).some(x=>x.cell===u.target)?` <a href="#" title="加為此客戶專屬欄位，填在 ${escHtml(u.target)}" onclick="addCustom(${i});return false">＋</a>`:''}</span>`).join('')+'</div>';
   }
   box.innerHTML=h;
 }
+function addCustom(i){
+  const u=tplDraft.unmapped[i];if(!u||!u.target)return;
+  let n=1;while(tplDraft.mapping['x_'+n])n++;
+  tplDraft.mapping['x_'+n]={cell:u.target,label:String(u.text).replace(/[:：]\s*$/,'').trim(),custom:true};
+  renderTemplateMap();
+}
+function removeCustom(k){delete tplDraft.mapping[k];renderTemplateMap();}
 function onMapEdit(el){
   const k=el.dataset.mapkey;const v=el.value.trim();
   if(!v){delete tplDraft.mapping[k];}
   else{
     if(!/^.+![A-Za-z]{1,3}\d{1,5}$/.test(v)){showToast('✗ 格式錯誤，應為 分頁!儲存格，例如 Technical!F19');el.focus();return;}
-    tplDraft.mapping[k]={cell:v.replace(/!([a-z]+)/,(m0,c)=>'!'+c.toUpperCase()),label:'（手動指定）'};
+    const cell=v.replace(/!([a-z]+)/,(m0,c)=>'!'+c.toUpperCase());
+    if(FDS.isCustom(k)){tplDraft.mapping[k].cell=cell;return;}
+    tplDraft.mapping[k]={cell,label:'（手動指定）'};
   }
+  if(FDS.isCustom(k))return;
   el.closest('tr').classList.toggle('unmapped-row',!v);
   el.closest('tr').querySelector('.lbl').textContent=v?'（手動指定）':'';
 }
@@ -1007,20 +1195,41 @@ async function saveTemplate(){
   if(!isAdmin())return;
   const name=document.getElementById('tpl-name').value.trim(),client=document.getElementById('tpl-client').value.trim();
   if(!name||!client){showToast('請填格式名稱與客戶名稱');return;}
-  if(!tplDraft||!tplDraft.fileB64){showToast('請上傳空白 FDS 範本');return;}
+  if(!tplDraft||(!tplDraft.fileB64&&!tplDraft.keepFile)){showToast('請上傳空白 FDS 範本');return;}
+  const prev=editingTemplateId?templates.find(t=>t.id===editingTemplateId):null;
   // 確認儲存格所在的分頁存在
   try{
-    const wb=tplDraft.wb||await loadWb(b64ToBuf(tplDraft.fileB64));
+    const wb=tplDraft.wb||await loadWb(tplDraft.fileB64?b64ToBuf(tplDraft.fileB64):await templateBuffer(prev));
     const bad=Object.entries(tplDraft.mapping).filter(([k,x])=>!wb.getWorksheet(FDS.splitRef(x.cell)[0]));
     if(bad.length){showToast('✗ 找不到分頁：'+bad.map(b=>b[1].cell).join('、'));return;}
   }catch(e){showToast('✗ 範本讀取失敗：'+e.message);return;}
-  const prev=editingTemplateId?templates.find(t=>t.id===editingTemplateId):null;
-  const doc={name,client,fileName:tplDraft.fileName,fileB64:tplDraft.fileB64,mapping:tplDraft.mapping,unmapped:tplDraft.unmapped||[],
+  const id=prev?prev.id:'tpl_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const doc={name,client,fileName:tplDraft.fileName,mapping:tplDraft.mapping,unmapped:tplDraft.unmapped||[],
+    fileChunks:prev?(prev.fileChunks||0):0,fileVersion:prev?(prev.fileVersion||prev.updatedAt||''):'',
     createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  if(prev&&prev.fileB64&&!tplDraft.fileB64)doc.fileB64=prev.fileB64; // 舊版（未切段）資料沿用
   try{
-    if(prev)await Store.set(COL.templates,prev.id,doc);else await Store.add(COL.templates,doc);
+    if(tplDraft.fileB64){ // 新範本檔：切段存放
+      const b=tplDraft.fileB64;const n=Math.ceil(b.length/CHUNK_CHARS);
+      for(let i=0;i<n;i++)await Store.set(COL.tplfiles,id+'_'+i,{templateId:id,i,data:b.slice(i*CHUNK_CHARS,(i+1)*CHUNK_CHARS)});
+      for(let i=n;i<(prev&&prev.fileChunks||0);i++)await Store.remove(COL.tplfiles,id+'_'+i);
+      doc.fileChunks=n;doc.fileVersion=nowStamp();delete doc.fileB64;
+    }
+    await Store.set(COL.templates,id,doc);
     showToast('✓ 已儲存格式：'+name);closeTemplateModal();
   }catch(e){showToast('✗ 儲存失敗：'+e.message);}
+}
+
+const tplCache={};
+async function templateBuffer(t){ // 取回範本檔（切段存放的會組回來），同一版本只下載一次
+  if(t.fileB64)return b64ToBuf(t.fileB64);
+  const key=t.id+'@'+(t.fileVersion||'');
+  if(!tplCache[key]){
+    let b='';
+    for(let i=0;i<(t.fileChunks||0);i++){const c=await Store.get(COL.tplfiles,t.id+'_'+i);if(!c)throw new Error('範本檔不完整，請重新上傳');b+=c.data;}
+    tplCache[key]=b;
+  }
+  return b64ToBuf(tplCache[key]);
 }
 
 /* ════════ 從已填 FDS 匯入 ════════ */
@@ -1050,7 +1259,7 @@ function renderImportPreview(){
   let h=`<div class="fgrid"><div class="field"><label>工廠品號 *</label><input id="imp-no" value="${escHtml(no)}" oninput="impNoChanged()"></div>
     <div class="field" id="imp-mode-box">${exists?`<label>主檔已有此品號</label><select id="imp-mode"><option value="fill">只補主檔中空白的欄位</option><option value="overwrite">用這份 FDS 覆蓋</option></select>`:'<label>&nbsp;</label><div class="hint" style="margin:6px 0 0">將建立新品號</div>'}</div></div>`;
   h+=`<div class="section-label">讀到 ${keys.length} 個欄位</div><div class="tbl-wrap" style="max-height:300px"><table class="grid-table"><tr><th>欄位</th><th>內容</th><th>存到</th></tr>`+
-    keys.map(k=>{const f=FDS.BY_KEY[k];return `<tr><td class="rl">${escHtml(f?f.label:k)}</td><td class="val">${escHtml(String(vals[k]))}</td><td class="lbl">${FDS.COMMERCIAL.includes(k)?escHtml(tpl.client)+' 報價':'主檔'}</td></tr>`;}).join('')+'</table></div>';
+    keys.map(k=>{const f=FDS.BY_KEY[k];return `<tr><td class="rl">${escHtml(f?f.label:String(tpl.mapping[k].label))}</td><td class="val">${escHtml(String(vals[k]))}</td><td class="lbl">${FDS.isQuoteKey(k)?escHtml(tpl.client)+' 報價':'主檔'}</td></tr>`;}).join('')+'</table></div>';
   h+=issuesHTML(issues);
   document.getElementById('imp-preview').innerHTML=h;
   document.getElementById('imp-save').disabled=!canEditData();
@@ -1063,7 +1272,7 @@ async function confirmImport(){
   const prev=articles.find(a=>a.id===id);
   const mode=(document.getElementById('imp-mode')||{}).value||'fill';
   const spec={},com={};
-  for(const [k,v] of Object.entries(vals)){if(k==='fds_date')continue;(FDS.COMMERCIAL.includes(k)?com:spec)[k]=v;}
+  for(const [k,v] of Object.entries(vals)){if(k==='fds_date')continue;(FDS.isQuoteKey(k)?com:spec)[k]=v;}
   spec.article_no=prev?prev.article:no;
   let fields;
   if(prev&&mode==='fill'){fields=Object.assign({},prev.fields);for(const [k,v] of Object.entries(spec))if(blank(fields[k]))fields[k]=v;}
@@ -1141,17 +1350,27 @@ function renderGenItems(){
   document.getElementById('btn-generate').disabled=!t||!sel.length;
   document.getElementById('btn-generate').innerHTML='<i class="ti ti-download"></i> 產生並下載'+(sel.length>1?'（'+sel.length+' 份，打包成 zip）':'');
   if(!t||!sel.length){box.innerHTML='';return;}
-  const comKeys=FDS.COMMERCIAL.filter(k=>t.mapping[k]);
+  const comKeys=FDS.COMMERCIAL.filter(k=>t.mapping[k]).concat(Object.keys(t.mapping).filter(FDS.isCustom));
   box.innerHTML=sel.map(a=>{
-    const v=valsFor(a,t);const qid=quoteId(a.article,t.client);
+    const v=FDS.derive(valsFor(a,t));const qid=quoteId(a.article,t.client);
     const issues=FDS.lint(v,t.mapping,TODAY);
-    return `<div class="calc-card gen-card"><h3>${escHtml(a.article)} <span class="muted" style="font-weight:400">× ${escHtml(t.client)}</span></h3>
-      ${comKeys.length?`<div class="section-label" style="margin-top:0">${escHtml(t.client)} 的報價條件</div><div class="fgrid">`+comKeys.map(k=>{const f=FDS.BY_KEY[k];
-        const lab=t.mapping[k].label&&t.mapping[k].label!=='（手動指定）'?String(t.mapping[k].label).replace(/\n/g,' '):'';
+    const others=quotes.filter(q=>q.articleId===a.id&&cliId(q.client)!==cliId(t.client));
+    const copyBtns=others.map(q=>`<button class="btn-io" onclick="copyTerms('${escHtml(a.id)}','${escHtml(q.id)}')"><i class="ti ti-copy"></i> 沿用 ${escHtml(q.client)} 的 MOQ／交期等條件（不含價格）</button>`).join(' ');
+    return `<div class="calc-card gen-card"><h3>${escHtml(a.article)} <span class="muted" style="font-weight:400">× ${escHtml(t.client)}</span></h3>${copyBtns?'<div class="toolbar" style="margin-top:-4px">'+copyBtns+'</div>':''}
+      ${comKeys.length?`<div class="section-label" style="margin-top:0">${escHtml(t.client)} 的報價條件</div><div class="fgrid">`+comKeys.map(k=>{const f=FDS.BY_KEY[k]||{label:String(t.mapping[k].label).replace(/\n/g,' ')+'（客戶專屬）'};
+        const lab=!FDS.isCustom(k)&&t.mapping[k].label&&t.mapping[k].label!=='（手動指定）'?String(t.mapping[k].label).replace(/\n/g,' '):'';
         return `<div class="field"><label title="${escHtml(lab)}">${escHtml(f.label)}${lab?'<span class="muted"> ｜'+escHtml(lab)+'</span>':''}</label>${f.type==='date'?`<input type="date" value="${escHtml(v[k]||'')}" class="${blank(v[k])?'is-empty':''}" oninput="genEdit('${qid}','${k}',this)">`:`<textarea rows="${Math.max(1,String(v[k]||'').split('\n').length)}" class="${blank(v[k])?'is-empty':''}" oninput="genEdit('${qid}','${k}',this)">${escHtml(v[k]||'')}</textarea>`}</div>`;}).join('')+'</div>':''}
       ${issuesHTML(issues,a.id)}
     </div>`;
   }).join('');
+}
+const NO_COPY=['price','sample_price','price_valid','client_code'];
+function copyTerms(aid,srcQid){
+  const t=currentTemplate();const a=articles.find(x=>x.id===aid);const src=quotes.find(q=>q.id===srcQid);if(!t||!a||!src)return;
+  const qid=quoteId(a.article,t.client);const cur=FDS.derive(valsFor(a,t));const from=FDS.derive(Object.assign({},a.fields,src.fields));
+  let n=0;
+  for(const k of FDS.COMMERCIAL){if(NO_COPY.includes(k)||!t.mapping[k]||!blank(cur[k])||blank(from[k]))continue;(genEdits[qid]=genEdits[qid]||{})[k]=String(from[k]);n++;}
+  renderGenItems();showToast(n?'✓ 已帶入 '+n+' 個欄位，價格請另外填寫；產生 FDS 時會一併存成 '+t.client+' 的報價條件':'沒有可帶入的欄位（目前欄位都已有值）');
 }
 function genEdit(qid,k,el){(genEdits[qid]=genEdits[qid]||{})[k]=el.value;el.classList.toggle('is-empty',blank(el.value));clearTimeout(genEdit._t);genEdit._t=setTimeout(refreshGenIssues,500);}
 function refreshGenIssues(){ // 只更新檢查清單，不重畫輸入框（避免游標跳掉）
@@ -1177,9 +1396,8 @@ async function generateSelected(){
   try{
     const files=[];
     for(const a of sel){
-      const v=valsFor(a,t);const wb=await loadWb(b64ToBuf(t.fileB64));
-      FDS.fill(wb,t.mapping,v,TODAY);
-      const buf=await wb.xlsx.writeBuffer();
+      const v=valsFor(a,t);
+      const buf=(await FDS.fillXlsx(await templateBuffer(t),t.mapping,v,TODAY)).data;
       files.push({name:safeName(t.client+'_FDS_'+a.article+'_'+TODAY)+'.xlsx',buf,a,issues:FDS.lint(v,t.mapping,TODAY)});
     }
     if(files.length===1)download(new Blob([files[0].buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),files[0].name);
