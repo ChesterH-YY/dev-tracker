@@ -404,6 +404,7 @@ label.pick-row{justify-content:flex-start;}
       <div class="field"><label>格式名稱 *</label><input id="tpl-name" placeholder="例如 Oner Active FDS V2 (May 2026)"></div>
       <div class="field"><label>客戶名稱 *（報價條件依此區分）</label><input id="tpl-client" placeholder="例如 Oner Active"></div>
     </div>
+    <div class="field"><label>填入內容的對齊方式</label><select id="tpl-align"><option value="left">統一靠左（建議）</option><option value="center">統一置中</option><option value="keep">保留範本原本的對齊</option></select></div>
     <div class="field"><label id="tpl-file-label">空白 FDS 範本（.xlsx）*</label><input type="file" id="tpl-file" accept=".xlsx" onchange="onTemplateFile(event)"></div>
     <div id="tpl-map"></div>
     <div class="modal-btns">
@@ -728,7 +729,11 @@ const FDS = (function(){
     if(isBlank(v.width_in)&&/["”]|inch/i.test(String(v.width_cm||'')))v.width_in=num(v.width_cm);
     for(const p of ['sample','bulk']){
       const c=p+'_moq',a=p+'_moq1',b=p+'_mcq';
-      if(!isBlank(v[c])){if(isBlank(v[a])&&partOf(v[c],'MOQ'))v[a]=partOf(v[c],'MOQ');if(isBlank(v[b])&&partOf(v[c],'MCQ'))v[b]=partOf(v[c],'MCQ');}
+      if(!isBlank(v[c])){
+        const tagged=partOf(v[c],'MOQ')||partOf(v[c],'MCQ');const h=halves(v[c]);
+        if(isBlank(v[a]))v[a]=tagged?partOf(v[c],'MOQ'):(h?h[0]:'');
+        if(isBlank(v[b]))v[b]=tagged?partOf(v[c],'MCQ'):(h?h[1]:'');
+      }
       else if(!isBlank(v[a])||!isBlank(v[b]))v[c]=[!isBlank(v[a])?'MOQ: '+v[a]:'',!isBlank(v[b])?'MCQ: '+v[b]:''].filter(Boolean).join(' / ');
       const L=p+'_lt',wo=p+'_lt_wo',w=p+'_lt_w';
       if(!isBlank(v[L])){const h=halves(v[L]);if(h){if(isBlank(v[wo]))v[wo]=h[0];if(isBlank(v[w]))v[w]=h[1];}}
@@ -758,8 +763,8 @@ const FDS = (function(){
   const NOFOLD={createFolders:false};
   const DATE_FMT_IDS=new Set([14,15,16,17,18,19,20,21,22,45,46,47]);
   function excelSerial(ymd){const [y,m,d]=ymd.split('-').map(Number);return (Date.UTC(y,m-1,d)-Date.UTC(1899,11,30))/86400000;}
-  async function fillXlsx(buf,mapping,vals,today,deps){
-    deps=deps||{};
+  async function fillXlsx(buf,mapping,vals,today,deps,opts){
+    deps=deps||{};opts=opts||{};const align=opts.align||'left';
     const JZ=deps.JSZip||(typeof JSZip!=='undefined'?JSZip:null);
     const DP=deps.DOMParser||(typeof DOMParser!=='undefined'?DOMParser:null);
     const XS=deps.XMLSerializer||(typeof XMLSerializer!=='undefined'?XMLSerializer:null);
@@ -794,6 +799,21 @@ const FDS = (function(){
       xfsEl.appendChild(cl);xfsEl.setAttribute('count',String(list.length+1));
       const ni=String(list.length);dateStyles.add(ni);stylesDirty=true;return xfMemo[sIdx]=ni;
     }
+    // 對齊：複製該格原本的樣式，只改對齊方式（框線、字型、底色都不變）
+    const alMemo={};
+    function alignXf(sIdx,wrap){
+      if(align==='keep')return null;
+      const key=sIdx+'|'+wrap;if(key in alMemo)return alMemo[key];
+      const xfsEl=stDoc&&stDoc.getElementsByTagName('cellXfs')[0];if(!xfsEl)return alMemo[key]=null;
+      const list=Array.from(xfsEl.childNodes).filter(x=>x.nodeType===1);const src=list[+sIdx];if(!src)return alMemo[key]=null;
+      const cl=src.cloneNode(true);cl.setAttribute('applyAlignment','1');
+      let al=Array.from(cl.childNodes).find(x=>x.nodeType===1&&x.localName==='alignment');
+      if(!al){al=stDoc.createElementNS(NS,'alignment');cl.insertBefore(al,cl.firstChild);}
+      al.setAttribute('horizontal',align==='center'?'center':'left');al.setAttribute('vertical','center');
+      if(wrap)al.setAttribute('wrapText','1');
+      xfsEl.appendChild(cl);xfsEl.setAttribute('count',String(list.length+1));
+      const ni=String(list.length);if(dateStyles.has(sIdx))dateStyles.add(ni);stylesDirty=true;return alMemo[key]=ni;
+    }
     const docs={};let removedFormula=false;const bools=[];let n=0;
     for(const [k,m] of Object.entries(mapping)){
       let val=v[k];if(isBlank(val)&&typeof val!=='boolean')continue;
@@ -812,6 +832,7 @@ const FDS = (function(){
       }
       else if(typeof val==='number'||(typeof val==='string'&&/^-?\d+(\.\d+)?$/.test(val.trim())))addChild(doc,c,'v',String(Number(val)));
       else setStr(doc,c,String(val));
+      if(typeof val!=='boolean'){const ni=alignXf(c.getAttribute('s')||'0',typeof val==='string'&&/\n/.test(val)||String(val).length>40);if(ni!=null)c.setAttribute('s',ni);}
       n++;
     }
     for(const [p,d] of Object.entries(docs))zip.file(p,ser(d),NOFOLD);
@@ -1130,6 +1151,7 @@ function openTemplateModal(id){
   document.getElementById('tpl-modal-title').textContent=t?'編輯客戶格式':'新增客戶格式';
   document.getElementById('tpl-name').value=t?t.name:'';
   document.getElementById('tpl-client').value=t?t.client:'';
+  document.getElementById('tpl-align').value=t&&t.align||'left';
   document.getElementById('tpl-file').value='';
   document.getElementById('tpl-file-label').textContent=t?'更換範本（選填，留空＝沿用 '+(t.fileName||'')+'）':'空白 FDS 範本（.xlsx）*';
   tplDraft=t?{mapping:JSON.parse(JSON.stringify(t.mapping||{})),unmapped:t.unmapped||[],fileB64:null,keepFile:true,fileName:t.fileName,wb:null}:null;
@@ -1204,7 +1226,7 @@ async function saveTemplate(){
     if(bad.length){showToast('✗ 找不到分頁：'+bad.map(b=>b[1].cell).join('、'));return;}
   }catch(e){showToast('✗ 範本讀取失敗：'+e.message);return;}
   const id=prev?prev.id:'tpl_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  const doc={name,client,fileName:tplDraft.fileName,mapping:tplDraft.mapping,unmapped:tplDraft.unmapped||[],
+  const doc={name,client,align:document.getElementById('tpl-align').value||'left',fileName:tplDraft.fileName,mapping:tplDraft.mapping,unmapped:tplDraft.unmapped||[],
     fileChunks:prev?(prev.fileChunks||0):0,fileVersion:prev?(prev.fileVersion||prev.updatedAt||''):'',
     createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
   if(prev&&prev.fileB64&&!tplDraft.fileB64)doc.fileB64=prev.fileB64; // 舊版（未切段）資料沿用
@@ -1397,7 +1419,7 @@ async function generateSelected(){
     const files=[];
     for(const a of sel){
       const v=valsFor(a,t);
-      const buf=(await FDS.fillXlsx(await templateBuffer(t),t.mapping,v,TODAY)).data;
+      const buf=(await FDS.fillXlsx(await templateBuffer(t),t.mapping,v,TODAY,null,{align:t.align||'left'})).data;
       files.push({name:safeName(t.client+'_FDS_'+a.article+'_'+TODAY)+'.xlsx',buf,a,issues:FDS.lint(v,t.mapping,TODAY)});
     }
     if(files.length===1)download(new Blob([files[0].buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),files[0].name);
