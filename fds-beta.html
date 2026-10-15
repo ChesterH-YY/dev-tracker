@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- FDS beta build 2026-10-15 -->
+<!-- FDS beta build 2026-10-15b -->
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -359,6 +359,15 @@ label.pick-row{justify-content:flex-start;}
     <input class="search-bar" id="gen-search" type="text" placeholder="搜尋品號…" oninput="renderGenPicker()" style="width:100%;margin-bottom:8px">
     <div id="gen-picker" class="picker"></div>
   </div>
+  <div class="calc-card gen-card">
+    <h3>3. 負責業務</h3>
+    <div class="toolbar" style="margin:0">
+      <select class="mini-select gen-select" id="gen-rep" onchange="onGenRepChange()" style="flex:1;width:auto"></select>
+      <button class="btn-io edit-only" onclick="openRepModal()"><i class="ti ti-user-plus"></i> 新增業務</button>
+      <button class="btn-io edit-only" id="btn-edit-rep" onclick="openRepModal(genRepId)"><i class="ti ti-pencil"></i> 編輯</button>
+    </div>
+    <div class="hint" id="gen-rep-hint" style="margin-bottom:0"></div>
+  </div>
   <div id="gen-items"></div>
   <div class="gen-actions">
     <button class="btn-confirm" id="btn-generate" onclick="generateSelected()"><i class="ti ti-download"></i> 產生並下載</button>
@@ -373,6 +382,14 @@ label.pick-row{justify-content:flex-start;}
 
 <!-- 客戶格式 -->
 <div id="templates-view" class="view" style="display:none">
+  <div class="calc-card gen-card">
+    <h3>公司預設資料 <span class="muted" style="font-weight:400">所有 FDS 共用</span></h3>
+    <div class="fgrid">
+      <div class="field"><label>工廠名稱（Fabric Mill）</label><input id="co-name" placeholder="例如 YuYuang Textile Co., Ltd."></div>
+      <div class="field"><label>工廠地址</label><input id="co-addr"></div>
+    </div>
+    <div class="admin-only" style="text-align:right"><button class="btn-add" style="display:inline-flex" onclick="saveCompany()"><i class="ti ti-device-floppy"></i> 儲存公司資料</button></div>
+  </div>
   <div class="toolbar">
     <span class="hint" style="margin:0;flex:1">每家客戶（品牌或成衣廠）的 FDS 格式。上傳空白表後，系統會自動辨識每個欄位該填在哪一格。</span>
     <button class="btn-add admin-only" onclick="openTemplateModal()"><i class="ti ti-plus"></i> 新增客戶格式</button>
@@ -428,6 +445,21 @@ label.pick-row{justify-content:flex-start;}
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeImportModal()">取消</button>
       <button class="btn-confirm" id="imp-save" onclick="confirmImport()" disabled>確認匯入</button>
+    </div>
+  </div>
+</div>
+
+<!-- 業務 -->
+<div class="modal-bg" id="rep-modal-bg" style="display:none">
+  <div class="modal">
+    <h3 id="rep-modal-title">新增業務</h3>
+    <div class="field"><label>姓名 *（FDS 上顯示的名字，例如 Chester Huang）</label><input id="rep-name"></div>
+    <div class="field"><label>Email *</label><input id="rep-email" type="email"></div>
+    <div class="field"><label>電話</label><input id="rep-phone"></div>
+    <div class="field"><label>對應的登入帳號（選填：設定後，這個帳號登入時會預設選這位業務）</label><select id="rep-account"></select></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeRepModal()">取消</button>
+      <button class="btn-confirm" onclick="saveRep()">儲存</button>
     </div>
   </div>
 </div>
@@ -946,7 +978,11 @@ const ADMIN_EMAILS=['ches.0301@gmail.com'];
 const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
 const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa','vivianyuyuang@gmail.com':'Vivian','demo@local':'示範使用者'};
 
-const COL={articles:'fds_articles',quotes:'fds_quotes',templates:'fds_templates',tplfiles:'fds_template_files',logs:'fds_log',dev:'dev_tracker_items'};
+const COL={articles:'fds_articles',quotes:'fds_quotes',templates:'fds_templates',tplfiles:'fds_template_files',logs:'fds_log',reps:'fds_reps',settings:'fds_settings',dev:'dev_tracker_items'};
+// 不跟著品號走的欄位：工廠名稱／地址＝公司預設資料；聯絡人＝產生 FDS 時選的業務
+const COMPANY_KEYS=['mill_name','mill_address'];
+const REP_KEYS=['contact_name','contact_email','contact_phone'];
+const MOVED_KEYS=COMPANY_KEYS.concat(REP_KEYS);
 const DEMO=new URLSearchParams(location.search).has('demo');
 const TODAY=(()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');})();
 const MAX_TEMPLATE_BYTES=6*1024*1024;  // 範本檔上限 6MB
@@ -961,6 +997,8 @@ let impDraft=null;      // {tpl,vals}
 let genSelected=new Set();
 let genEdits={};        // quoteId -> {key:value}
 let devItems=[];
+let reps=[],company={},genRepId='',genRepTouched=false;
+const loaded={articles:false,reps:false,settings:false};let migrated=false;
 
 /* ── 小工具 ── */
 function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1029,7 +1067,7 @@ function applyPermissions(){
 function renderAll(){renderArticles();renderTemplates();renderLogs();if(document.getElementById('generate-view').style.display!=='none')renderGenerate();}
 
 /* ════════ 品號主檔 ════════ */
-const SPEC_KEYS=()=>FDS.FIELDS.filter(f=>['基本','規格','針織參數','梭織參數'].includes(f.cat)&&!f.extra&&!f.derived).map(f=>f.key);
+const SPEC_KEYS=()=>FDS.FIELDS.filter(f=>['基本','規格','針織參數','梭織參數'].includes(f.cat)&&!f.extra&&!f.derived&&!MOVED_KEYS.includes(f.key)).map(f=>f.key);
 function relevantSpecKeys(fields){
   const knit=/knit/i.test(String(fields.construction||'')),woven=/woven/i.test(String(fields.construction||''));
   return SPEC_KEYS().filter(k=>!(knit&&['epi','ppi'].includes(k))&&!(woven&&['machine_dia','gauge','cpi','wpi'].includes(k))).concat(['width']);
@@ -1071,11 +1109,11 @@ function fieldInput(f,val,opts){
 function markEmpty(el){el.classList.toggle('is-empty',blank(el.value)&&!el.dataset.nomark);}
 function buildArticleForm(fields,ro){
   const v=fields||{};let h='';
-  const groups=[['基本',['mill_name','contact_name','contact_email','contact_phone','mill_address','coo','cs_seamless']],
+  const groups=[['基本',['coo','cs_seamless']],
     ['規格',['composition','fiber_pct','fiber_names','weight_gsm','construction','classification','structure','width_in','width_cm','open_width_in','shrinkage','dye_method','dye_type','additives','print_method','coating','mech_finish','lamination','chem_finish','chem_finish_name','chem_finish_supplier','attribute','wash_care']],
     ['針織參數',['machine_dia','gauge','cpi','wpi']],['梭織參數',['epi','ppi']]];
   for(const [g,keys] of groups){
-    h+=`<div class="section-label">${g}</div><div class="fgrid">`;
+    h+=`<div class="section-label">${g}</div>`+(g==='基本'?'<div class="hint" style="margin-top:-4px">工廠名稱、地址是公司預設資料（在「客戶格式」分頁）；聯絡人在「產生 FDS」時選擇負責業務。</div>':'')+`<div class="fgrid">`;
     for(const k of keys){const f=FDS.BY_KEY[k];const wide=['wash_care','attribute','composition'].includes(k)?' span2':'';
       const AUTO_PH={width_cm:'留空＝由 inch 自動換算',width_in:'例如 54（與 cm 擇一填即可）',fiber_pct:'留空＝由成分自動拆出，例如 76/24',fiber_names:'留空＝由成分自動拆出，例如 NYLON/ELASTANE',classification:'留空＝依組織大類自動帶入，例如 Circular Knit'};
       const opts=AUTO_PH[k]?{placeholder:AUTO_PH[k],noMark:true}:(f.extra?{noMark:true}:{});
@@ -1282,7 +1320,7 @@ function renderImportPreview(){
   let h=`<div class="fgrid"><div class="field"><label>工廠品號 *</label><input id="imp-no" value="${escHtml(no)}" oninput="impNoChanged()"></div>
     <div class="field" id="imp-mode-box">${exists?`<label>主檔已有此品號</label><select id="imp-mode"><option value="fill">只補主檔中空白的欄位</option><option value="overwrite">用這份 FDS 覆蓋</option></select>`:'<label>&nbsp;</label><div class="hint" style="margin:6px 0 0">將建立新品號</div>'}</div></div>`;
   h+=`<div class="section-label">讀到 ${keys.length} 個欄位</div><div class="tbl-wrap" style="max-height:300px"><table class="grid-table"><tr><th>欄位</th><th>內容</th><th>存到</th></tr>`+
-    keys.map(k=>{const f=FDS.BY_KEY[k];return `<tr><td class="rl">${escHtml(f?f.label:String(tpl.mapping[k].label))}</td><td class="val">${escHtml(String(vals[k]))}</td><td class="lbl">${FDS.isQuoteKey(k)?escHtml(tpl.client)+' 報價':'主檔'}</td></tr>`;}).join('')+'</table></div>';
+    keys.map(k=>{const f=FDS.BY_KEY[k];return `<tr><td class="rl">${escHtml(f?f.label:String(tpl.mapping[k].label))}</td><td class="val">${escHtml(String(vals[k]))}</td><td class="lbl">${REP_KEYS.includes(k)?'業務名單':COMPANY_KEYS.includes(k)?'公司資料':FDS.isQuoteKey(k)?escHtml(tpl.client)+' 報價':'主檔'}</td></tr>`;}).join('')+'</table></div>';
   h+=issuesHTML(issues);
   document.getElementById('imp-preview').innerHTML=h;
   document.getElementById('imp-save').disabled=!canEditData();
@@ -1295,7 +1333,8 @@ async function confirmImport(){
   const prev=articles.find(a=>a.id===id);
   const mode=(document.getElementById('imp-mode')||{}).value||'fill';
   const spec={},com={};
-  for(const [k,v] of Object.entries(vals)){if(k==='fds_date')continue;(FDS.isQuoteKey(k)?com:spec)[k]=v;}
+  const moved={};
+  for(const [k,v] of Object.entries(vals)){if(k==='fds_date')continue;if(MOVED_KEYS.includes(k)){moved[k]=v;continue;}(FDS.isQuoteKey(k)?com:spec)[k]=v;}
   spec.article_no=prev?prev.article:no;
   let fields;
   if(prev&&mode==='fill'){fields=Object.assign({},prev.fields);for(const [k,v] of Object.entries(spec))if(blank(fields[k]))fields[k]=v;}
@@ -1304,10 +1343,14 @@ async function confirmImport(){
   if(!doc.source)delete doc.source;
   try{
     await Store.set(COL.articles,id,doc);
-    if(Object.keys(com).length){
+    // 聯絡人 → 業務名單；工廠名稱／地址 → 公司資料（還沒設定時）
+    const repId=await findOrCreateRep(moved.contact_name,moved.contact_email,moved.contact_phone);
+    if(isAdmin()&&blank(company.mill_name)&&blank(company.mill_address)&&(!blank(moved.mill_name)||!blank(moved.mill_address)))
+      await Store.set(COL.settings,'company',{mill_name:moved.mill_name||'',mill_address:moved.mill_address||'',updatedBy:currentUserEmail,updatedAt:nowStamp()});
+    if(Object.keys(com).length||repId){
       const qid=quoteId(no,tpl.client);const pq=quotes.find(q=>q.id===qid);
       const qf=Object.assign({},pq?pq.fields:{});for(const [k,v] of Object.entries(com))if(mode==='overwrite'||blank(qf[k]))qf[k]=v;
-      await Store.set(COL.quotes,qid,{articleId:id,article:doc.article,client:tpl.client,fields:qf,updatedBy:currentUserEmail,updatedAt:nowStamp()});
+      await Store.set(COL.quotes,qid,{articleId:id,article:doc.article,client:tpl.client,fields:qf,repId:repId||(pq&&pq.repId)||'',updatedBy:currentUserEmail,updatedAt:nowStamp()});
     }
     showToast('✓ 已匯入 '+doc.article+'（主檔 '+Object.keys(spec).length+' 欄、報價 '+Object.keys(com).length+' 欄）');
     closeImportModal();
@@ -1354,18 +1397,114 @@ function renderGenerate(){
   if(cur&&templates.some(t=>t.id===cur))sel.value=cur;
   const t=currentTemplate();
   document.getElementById('gen-tpl-hint').textContent=t?'客戶：'+t.client+'｜此格式需要 '+Object.keys(t.mapping).length+' 個欄位':'請先到「客戶格式」新增格式';
-  renderGenPicker();renderGenItems();
+  renderGenPicker();renderGenRep();renderGenItems();
 }
-function onGenTemplateChange(){genEdits={};renderGenerate();}
+function onGenTemplateChange(){genEdits={};genRepId='';genRepTouched=false;renderGenerate();}
 function renderGenPicker(){
   const q=(document.getElementById('gen-search').value||'').toLowerCase();
   const list=articles.filter(a=>a.article.toLowerCase().includes(q)).sort((a,b)=>a.article.localeCompare(b.article));
   document.getElementById('gen-picker').innerHTML=list.length?list.map(a=>`<label class="pick-row"><input type="checkbox" ${genSelected.has(a.id)?'checked':''} onchange="toggleGen('${escHtml(a.id)}',this.checked)"> <b>${escHtml(a.article)}</b> <span class="muted">${escHtml(a.fields.composition||'')}</span></label>`).join(''):'<div class="empty" style="padding:1rem">沒有品號</div>';
 }
-function toggleGen(id,on){on?genSelected.add(id):genSelected.delete(id);renderGenItems();}
+function toggleGen(id,on){on?genSelected.add(id):genSelected.delete(id);renderGenRep();renderGenItems();}
+function currentRep(){return reps.find(r=>r.id===genRepId)||null;}
+function repFields(r){return r?{contact_name:r.name||'',contact_email:r.email||'',contact_phone:r.phone||''}:{};}
 function valsFor(a,t){
   const q=quotes.find(x=>x.id===quoteId(a.article,t.client));
-  return Object.assign({},a.fields,q?q.fields:{},genEdits[quoteId(a.article,t.client)]||{});
+  const base=Object.assign({},a.fields);MOVED_KEYS.forEach(k=>delete base[k]);
+  const co={};if(!blank(company.mill_name))co.mill_name=company.mill_name;if(!blank(company.mill_address))co.mill_address=company.mill_address;
+  return Object.assign(base,co,q?q.fields:{},repFields(currentRep()),genEdits[quoteId(a.article,t.client)]||{});
+}
+function lintFor(a,t){
+  let issues=FDS.lint(valsFor(a,t),t.mapping,TODAY);
+  if(!currentRep()&&REP_KEYS.some(k=>t.mapping[k])){issues=issues.filter(i=>!REP_KEYS.includes(i.key));issues.push({type:'missing',key:'rep',msg:'負責業務 未填'});}
+  issues=issues.map(i=>COMPANY_KEYS.includes(i.key)?Object.assign({},i,{msg:i.msg.replace(' 未填','（公司資料）未填')}):i);
+  return issues;
+}
+/* ── 負責業務 ── */
+function renderGenRep(){
+  const sel=document.getElementById('gen-rep');if(!sel)return;
+  const t=currentTemplate();
+  if(genRepId&&!reps.some(r=>r.id===genRepId))genRepId='';
+  if(!genRepTouched&&!genRepId){
+    // 預設：這些品號上次給這家客戶時用的業務 → 對應目前登入帳號的業務
+    const ids=[...genSelected];
+    const last=t?quotes.filter(q=>ids.includes(q.articleId)&&cliId(q.client)===cliId(t.client)&&q.repId&&reps.some(r=>r.id===q.repId)).sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))[0]:null;
+    const mine=reps.find(r=>r.account&&r.account===currentUserEmail);
+    genRepId=last?last.repId:(mine?mine.id:'');
+  }
+  sel.innerHTML='<option value="">（請選擇負責業務）</option>'+reps.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(r=>`<option value="${escHtml(r.id)}">${escHtml(r.name)}${r.email?'｜'+escHtml(r.email):''}</option>`).join('');
+  sel.value=genRepId;
+  const r=currentRep();
+  document.getElementById('gen-rep-hint').textContent=r?'FDS 上的聯絡人會填：'+[r.name,r.email,r.phone].filter(Boolean).join('｜'):(reps.length?'選一位這次負責推廣的業務，FDS 上的聯絡人會填他的資料':'還沒有業務資料，請按「新增業務」');
+  const eb=document.getElementById('btn-edit-rep');if(eb)eb.style.display=r&&canEditRep(r)?'':'none';
+}
+function onGenRepChange(){genRepId=document.getElementById('gen-rep').value;genRepTouched=true;renderGenRep();renderGenItems();}
+function canEditRep(r){return canEditData()&&(isAdmin()||r.createdBy===currentUserEmail||r.account===currentUserEmail);}
+let editingRepId=null;
+function openRepModal(id){
+  if(!canEditData()){showToast('✗ 唯讀帳號無法新增業務');return;}
+  const r=id?reps.find(x=>x.id===id):null;
+  if(r&&!canEditRep(r)){showToast('✗ 只能修改自己建立或自己的業務資料');return;}
+  editingRepId=r?r.id:null;
+  document.getElementById('rep-modal-title').textContent=r?'編輯業務':'新增業務';
+  document.getElementById('rep-name').value=r?r.name||'':'';
+  document.getElementById('rep-email').value=r?r.email||'':'';
+  document.getElementById('rep-phone').value=r?r.phone||'':'';
+  const acc=document.getElementById('rep-account');
+  acc.innerHTML='<option value="">（不設定）</option>'+ALLOWED_EMAILS.map(e=>`<option value="${escHtml(e)}">${escHtml(displayName(e))}｜${escHtml(e)}</option>`).join('');
+  acc.value=r?(r.account||''):(reps.some(x=>x.account===currentUserEmail)?'':(DEMO?'':currentUserEmail));
+  document.getElementById('rep-modal-bg').style.display='flex';setTimeout(()=>document.getElementById('rep-name').focus(),50);
+}
+function closeRepModal(){document.getElementById('rep-modal-bg').style.display='none';editingRepId=null;}
+async function saveRep(){
+  const name=document.getElementById('rep-name').value.trim(),email=document.getElementById('rep-email').value.trim();
+  if(!name||!email){showToast('請填姓名與 Email');return;}
+  const account=document.getElementById('rep-account').value;
+  if(account&&reps.some(r=>r.account===account&&r.id!==editingRepId)){showToast('✗ 這個登入帳號已經對應到另一位業務');return;}
+  const prev=editingRepId?reps.find(r=>r.id===editingRepId):null;
+  const doc={name,email,phone:document.getElementById('rep-phone').value.trim(),account,createdBy:prev?prev.createdBy:currentUserEmail,createdAt:prev?prev.createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  try{
+    const id=prev?prev.id:'rep_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    await Store.set(COL.reps,id,doc);genRepId=id;genRepTouched=true;closeRepModal();showToast('✓ 已儲存業務：'+name);renderGenRep();renderGenItems();
+  }catch(e){showToast('✗ 儲存失敗：'+e.message);}
+}
+async function findOrCreateRep(name,email,phone){
+  name=String(name||'').trim();email=String(email||'').trim();
+  if(!name&&!email)return null;
+  const hit=reps.find(r=>(email&&String(r.email).toLowerCase()===email.toLowerCase())||(!email&&name&&String(r.name).toLowerCase()===name.toLowerCase()));
+  if(hit)return hit.id;
+  const id='rep_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const doc={name:name||email,email,phone:String(phone||'').trim(),account:'',createdBy:currentUserEmail,createdAt:nowStamp(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  await Store.set(COL.reps,id,doc);reps.push(Object.assign({id},doc));return id;
+}
+/* ── 公司預設資料 ── */
+function renderCompany(){
+  const n=document.getElementById('co-name'),a=document.getElementById('co-addr');if(!n)return;
+  if(document.activeElement!==n)n.value=company.mill_name||'';
+  if(document.activeElement!==a)a.value=company.mill_address||'';
+  n.disabled=a.disabled=!isAdmin();
+}
+async function saveCompany(){
+  if(!isAdmin())return;
+  const doc={mill_name:document.getElementById('co-name').value.trim(),mill_address:document.getElementById('co-addr').value.trim(),updatedBy:currentUserEmail,updatedAt:nowStamp()};
+  try{await Store.set(COL.settings,'company',doc);showToast('✓ 已儲存公司資料');}catch(e){showToast('✗ 儲存失敗：'+e.message);}
+}
+/* ── 舊資料：品號裡的工廠／聯絡人資料轉成公司資料與業務名單（管理員登入時做一次） ── */
+async function maybeMigrate(){
+  if(migrated||!isAdmin()||!loaded.articles||!loaded.reps||!loaded.settings)return;
+  migrated=true;
+  try{
+    let nRep=0;
+    if(blank(company.mill_name)&&blank(company.mill_address)){
+      const src=articles.find(a=>!blank(a.fields.mill_name)||!blank(a.fields.mill_address));
+      if(src)await Store.set(COL.settings,'company',{mill_name:src.fields.mill_name||'',mill_address:src.fields.mill_address||'',updatedBy:currentUserEmail,updatedAt:nowStamp(),migratedFrom:src.article});
+    }
+    for(const a of articles){
+      const f=a.fields;if(blank(f.contact_name)&&blank(f.contact_email))continue;
+      const before=reps.length;await findOrCreateRep(f.contact_name,f.contact_email,f.contact_phone);if(reps.length>before)nRep++;
+    }
+    if(nRep)showToast('已把品號裡的聯絡人整理成業務名單（'+nRep+' 位）');
+  }catch(e){console.warn('migrate',e);}
 }
 function renderGenItems(){
   const t=currentTemplate();const box=document.getElementById('gen-items');
@@ -1376,7 +1515,7 @@ function renderGenItems(){
   const comKeys=FDS.COMMERCIAL.filter(k=>t.mapping[k]).concat(Object.keys(t.mapping).filter(FDS.isCustom));
   box.innerHTML=sel.map(a=>{
     const v=FDS.derive(valsFor(a,t));const qid=quoteId(a.article,t.client);
-    const issues=FDS.lint(v,t.mapping,TODAY);
+    const issues=lintFor(a,t);
     const others=quotes.filter(q=>q.articleId===a.id&&cliId(q.client)!==cliId(t.client));
     const copyBtns=others.map(q=>`<button class="btn-io" onclick="copyTerms('${escHtml(a.id)}','${escHtml(q.id)}')"><i class="ti ti-copy"></i> 沿用 ${escHtml(q.client)} 的 MOQ／交期等條件（不含價格）</button>`).join(' ');
     return `<div class="calc-card gen-card"><h3>${escHtml(a.article)} <span class="muted" style="font-weight:400">× ${escHtml(t.client)}</span></h3>${copyBtns?'<div class="toolbar" style="margin-top:-4px">'+copyBtns+'</div>':''}
@@ -1400,7 +1539,7 @@ function refreshGenIssues(){ // 只更新檢查清單，不重畫輸入框（避
   const t=currentTemplate();if(!t)return;
   document.querySelectorAll('#gen-items .gen-card').forEach((card,i)=>{
     const a=[...genSelected].map(id=>articles.find(x=>x.id===id)).filter(Boolean)[i];if(!a)return;
-    const old=card.querySelector('.issues');const tmp=document.createElement('div');tmp.innerHTML=issuesHTML(FDS.lint(valsFor(a,t),t.mapping,TODAY),a.id);
+    const old=card.querySelector('.issues');const tmp=document.createElement('div');tmp.innerHTML=issuesHTML(lintFor(a,t),a.id);
     if(old)old.replaceWith(tmp.firstElementChild);
   });
 }
@@ -1421,7 +1560,7 @@ async function generateSelected(){
     for(const a of sel){
       const v=valsFor(a,t);
       const buf=(await FDS.fillXlsx(await templateBuffer(t),t.mapping,v,TODAY,null,{align:t.align||'left'})).data;
-      files.push({name:safeName(t.client+'_FDS_'+a.article+'_'+TODAY)+'.xlsx',buf,a,issues:FDS.lint(v,t.mapping,TODAY)});
+      files.push({name:safeName(t.client+'_FDS_'+a.article+'_'+TODAY)+'.xlsx',buf,a,issues:lintFor(a,t)});
     }
     if(files.length===1)download(new Blob([files[0].buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),files[0].name);
     else{const zip=new JSZip();files.forEach(f=>zip.file(f.name,f.buf));download(await zip.generateAsync({type:'blob'}),safeName(t.client+'_FDS_'+TODAY)+'.zip');}
@@ -1429,9 +1568,12 @@ async function generateSelected(){
     if(canEditData()){
       for(const f of files){
         const qid=quoteId(f.a.article,t.client);const ed=genEdits[qid];
-        if(ed&&Object.keys(ed).length){const pq=quotes.find(q=>q.id===qid);const qf=Object.assign({},pq?pq.fields:{});for(const [k,v] of Object.entries(ed)){if(blank(v))delete qf[k];else qf[k]=v.trim();}
-          await Store.set(COL.quotes,qid,{articleId:f.a.id,article:f.a.article,client:t.client,fields:qf,updatedBy:currentUserEmail,updatedAt:nowStamp()});}
-        await Store.add(COL.logs,{article:f.a.article,client:t.client,template:t.name,by:currentUserEmail,at:nowStamp(),warn:f.issues.filter(i=>i.type==='warn').length,missing:f.issues.filter(i=>i.type==='missing').length});
+        const pq=quotes.find(q=>q.id===qid);const qf=Object.assign({},pq?pq.fields:{});
+        if(ed)for(const [k,v] of Object.entries(ed)){if(blank(v))delete qf[k];else qf[k]=v.trim();}
+        if((ed&&Object.keys(ed).length)||(genRepId&&(!pq||pq.repId!==genRepId)))
+          await Store.set(COL.quotes,qid,{articleId:f.a.id,article:f.a.article,client:t.client,fields:qf,repId:genRepId||(pq&&pq.repId)||'',updatedBy:currentUserEmail,updatedAt:nowStamp()});
+        const r=currentRep();
+        await Store.add(COL.logs,{article:f.a.article,client:t.client,template:t.name,by:currentUserEmail,rep:r?r.name:'',at:nowStamp(),warn:f.issues.filter(i=>i.type==='warn').length,missing:f.issues.filter(i=>i.type==='missing').length});
       }
       genEdits={};
     }
@@ -1444,10 +1586,10 @@ async function generateSelected(){
 function renderLogs(){
   const el=document.getElementById('log-list');
   if(!logs.length){el.innerHTML='<div class="empty">尚無紀錄</div>';return;}
-  el.innerHTML='<div class="tbl-wrap"><table class="grid-table log-table"><tr><th>時間</th><th>品號</th><th>客戶 / 格式</th><th>產生者</th><th>檢查</th></tr>'+
+  el.innerHTML='<div class="tbl-wrap"><table class="grid-table log-table"><tr><th>時間</th><th>品號</th><th>客戶 / 格式</th><th>業務 / 產生者</th><th>檢查</th></tr>'+
     logs.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,300).map(l=>{const d=new Date(l.at);
       const ts=isNaN(d)?'':d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-      return `<tr><td>${escHtml(ts)}</td><td><b>${escHtml(l.article)}</b></td><td>${escHtml(l.client)}<div class="muted">${escHtml(l.template)}</div></td><td>${escHtml(displayName(l.by))}</td><td>${l.warn?`<span class="badge" style="background:#FBE9E7;color:#8C1D18">待確認 ${l.warn}</span> `:''}${l.missing?`<span class="badge" style="background:#FAEEDA;color:#633806">未填 ${l.missing}</span>`:''}${!l.warn&&!l.missing?'<span class="badge" style="background:#DCEFE0;color:#1F6D3A">通過</span>':''}</td></tr>`;}).join('')+'</table></div>';
+      return `<tr><td>${escHtml(ts)}</td><td><b>${escHtml(l.article)}</b></td><td>${escHtml(l.client)}<div class="muted">${escHtml(l.template)}</div></td><td>${l.rep?'<b>'+escHtml(l.rep)+'</b><div class="muted">'+escHtml(displayName(l.by))+'</div>':escHtml(displayName(l.by))}</td><td>${l.warn?`<span class="badge" style="background:#FBE9E7;color:#8C1D18">待確認 ${l.warn}</span> `:''}${l.missing?`<span class="badge" style="background:#FAEEDA;color:#633806">未填 ${l.missing}</span>`:''}${!l.warn&&!l.missing?'<span class="badge" style="background:#DCEFE0;color:#1F6D3A">通過</span>':''}</td></tr>`;}).join('')+'</table></div>';
 }
 
 /* ════════ 登入與啟動 ════════ */
@@ -1460,19 +1602,21 @@ function signInWithGoogle(){firebase.auth().signInWithPopup(new firebase.auth.Go
 function signOutUser(){if(DEMO){location.href=location.pathname;return;}firebase.auth().signOut();}
 function attachListeners(){
   detachListeners();
-  unsubs.push(Store.listen(COL.articles,d=>{articles=d.map(a=>Object.assign({fields:{}},a));renderArticles();if(document.getElementById('generate-view').style.display!=='none'){renderGenPicker();renderGenItems();}}));
+  unsubs.push(Store.listen(COL.articles,d=>{articles=d.map(a=>Object.assign({fields:{}},a));loaded.articles=true;maybeMigrate();renderArticles();if(document.getElementById('generate-view').style.display!=='none'){renderGenPicker();renderGenItems();}}));
   if(!isReadOnly(currentUserEmail))unsubs.push(Store.listen(COL.quotes,d=>{quotes=d;if(document.getElementById('generate-view').style.display!=='none')renderGenItems();}));
   unsubs.push(Store.listen(COL.templates,d=>{templates=d;renderTemplates();if(document.getElementById('generate-view').style.display!=='none')renderGenerate();}));
   unsubs.push(Store.listen(COL.logs,d=>{logs=d;renderLogs();}));
+  unsubs.push(Store.listen(COL.reps,d=>{reps=d;loaded.reps=true;renderGenRep();if(document.getElementById('generate-view').style.display!=='none')renderGenItems();maybeMigrate();}));
+  unsubs.push(Store.listen(COL.settings,d=>{const c=d.find(x=>x.id==='company');company=c||{};loaded.settings=true;renderCompany();if(document.getElementById('generate-view').style.display!=='none')renderGenItems();maybeMigrate();}));
 }
-function detachListeners(){unsubs.forEach(u=>{try{u();}catch(e){}});unsubs=[];articles=[];quotes=[];templates=[];logs=[];}
+function detachListeners(){unsubs.forEach(u=>{try{u();}catch(e){}});unsubs=[];articles=[];quotes=[];templates=[];logs=[];reps=[];company={};genRepId='';loaded.articles=loaded.reps=loaded.settings=false;migrated=false;}
 function enterApp(email){
   currentUserEmail=email;
   document.getElementById('user-email-display').textContent=displayName(email);
   showScreen('app');applyPermissions();attachListeners();
 }
-['art-modal-bg','tpl-modal-bg','imp-modal-bg','dev-modal-bg'].forEach((id,i)=>setupBackdropClose(id,[closeArticleModal,closeTemplateModal,closeImportModal,closeDevPickModal][i]));
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeArticleModal();closeTemplateModal();closeImportModal();closeDevPickModal();}});
+['art-modal-bg','tpl-modal-bg','imp-modal-bg','dev-modal-bg','rep-modal-bg'].forEach((id,i)=>setupBackdropClose(id,[closeArticleModal,closeTemplateModal,closeImportModal,closeDevPickModal,closeRepModal][i]));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeArticleModal();closeTemplateModal();closeImportModal();closeDevPickModal();closeRepModal();}});
 
 if(DEMO){
   Store.init('memory');document.getElementById('demo-banner').style.display='flex';
