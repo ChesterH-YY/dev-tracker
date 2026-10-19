@@ -2321,16 +2321,18 @@ function detachPrintListener(){
    紗線庫 (Yarn library) — 記錄跟紗廠討論過的紗線，可串聯到開發項目
    資料存在 Firestore 的 yarn_items；開發項目的紗支列用 yarnId 連結
    ──────────────────────────────────────────────────────────── */
-const YARN_STATUSES=['洽談中','索樣中','已到樣','已用於開發','暫不考慮'];
-const YARN_STATUS_COLORS={'洽談中':{bg:'#EEEDFE',fg:'#3C3489',border:'#3C3489'},'索樣中':{bg:'#E6F1FB',fg:'#0C447C',border:'#0C447C'},'已到樣':{bg:'#E1F5EE',fg:'#085041',border:'#085041'},'已用於開發':{bg:'#E3F1E6',fg:'#1F6D3A',border:'#1F6D3A'},'暫不考慮':{bg:'#EEEEEC',fg:'#5F5E5A',border:'#5F5E5A'}};
+const YARN_STATUSES=['評估中','已用於開發','暫不考慮'];
+const YARN_OLD_STATUS_MAP={'洽談中':'評估中','索樣中':'評估中','已到樣':'評估中'};
+const YARN_DEFAULT_STATUSES=['評估中','已用於開發'];
+const YARN_STATUS_COLORS={'評估中':{bg:'#EEEDFE',fg:'#3C3489',border:'#3C3489'},'已用於開發':{bg:'#E3F1E6',fg:'#1F6D3A',border:'#1F6D3A'},'暫不考慮':{bg:'#EEEEEC',fg:'#5F5E5A',border:'#5F5E5A'}};
 const YARN_DEFAULT_FUNCS=['涼感','回收','T2T回收','海洋回收','原抽','生物基','抗菌','吸濕排汗','防汗漬','抗UV','保暖','輕量','防潑水','耐磨'];
 const YARN_STALLED_DAYS=14;
 const YARN_FLAGS=[['idea','想法池（未串聯開發）'],['nextOverdue','下一步逾期'],['stalled','停滯（'+YARN_STALLED_DAYS+'天無更新）']];
 let yarnList=[],yarnRef=null,unsubscribeYarns=null,editingYarnId=null,openYarnCardId=null,yarnGroupBy='none',yarnGroupKeys=[],yarnModalFuncs=[];
-const activeYarnStatuses=new Set(['洽談中','索樣中','已到樣','已用於開發']),activeYarnFuncs=new Set(),activeYarnFlags=new Set(),yarnGroupExpanded=new Set(),expandedYarnLogIds=new Set();
+const activeYarnStatuses=new Set(YARN_DEFAULT_STATUSES),activeYarnFuncs=new Set(),activeYarnFlags=new Set(),yarnGroupExpanded=new Set(),expandedYarnLogIds=new Set();
 try{const g=localStorage.getItem('dt_yarnGroupBy');if(['none','supplier','status'].includes(g))yarnGroupBy=g;}catch(e){}
 
-function normalizeYarnItem(y){return {...y,functions:Array.isArray(y.functions)?y.functions:[],logs:y.logs||[],status:YARN_STATUSES.includes(y.status)?y.status:'洽談中'};}
+function normalizeYarnItem(y){return {...y,functions:Array.isArray(y.functions)?y.functions:[],logs:y.logs||[],status:YARN_STATUSES.includes(y.status)?y.status:(YARN_OLD_STATUS_MAP[y.status]||'評估中')};}
 function canEditYarn(y){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||y.createdBy===currentUserEmail);}
 function yarnFuncOptions(){const s=new Set(YARN_DEFAULT_FUNCS);yarnList.forEach(y=>y.functions.forEach(f=>f&&s.add(f)));return [...s];}
 function yarnPriceText(y){if(y.price===''||y.price==null)return '';return `TWD ${y.price}/kg`;}
@@ -2459,11 +2461,11 @@ function renderYarns(){
   const gt=document.getElementById('yarn-group-tools');if(gt)gt.style.display=(yarnGroupBy!=='none'&&!searching)?'':'none';
   const n=f=>list.filter(f).length;
   const stat=(num,label,kind,val)=>{const on=kind&&({flag:activeYarnFlags,status:activeYarnStatuses}[kind]).has(val)&&!(kind==='status'&&activeYarnStatuses.size!==1);return `<div class="stat-card${on?' active':''}"${kind?` onclick="${kind==='flag'?`toggleYarnSet('flag','${val}')`:`selectYarnStatusOnly('${val}')`}"`:''}><div class="stat-num">${num}</div><div class="stat-label">${label}</div></div>`;};
-  document.getElementById('yarn-stats-row').innerHTML=stat(list.length,'紗線數')+stat(n(isYarnIdea),'想法池','flag','idea')+stat(n(isYarnNextOverdue),'下一步逾期','flag','nextOverdue')+stat(n(isYarnStalled),'停滯','flag','stalled')+['索樣中','已到樣'].map(s=>stat(n(y=>y.status===s),s,'status',s)).join('');
+  document.getElementById('yarn-stats-row').innerHTML=stat(list.length,'紗線數')+stat(n(isYarnIdea),'想法池','flag','idea')+stat(n(isYarnNextOverdue),'下一步逾期','flag','nextOverdue')+stat(n(isYarnStalled),'停滯','flag','stalled')+['評估中','已用於開發'].map(s=>stat(n(y=>y.status===s),s,'status',s)).join('');
   if(!list.length){el.innerHTML=`<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>${yarnList.length?'沒有符合的紗線':'還沒有紗線紀錄，按右上角「新增紗線」開始'}</div>`;return;}
   el.innerHTML=yarnGroupBy==='none'?list.map(yarnCardHTML).join(''):buildYarnGroupedHTML(list,searching);
 }
-function selectYarnStatusOnly(s){if(activeYarnStatuses.size===1&&activeYarnStatuses.has(s)){activeYarnStatuses.clear();['洽談中','索樣中','已到樣','已用於開發'].forEach(x=>activeYarnStatuses.add(x));}else{activeYarnStatuses.clear();activeYarnStatuses.add(s);}syncYarnChips();renderYarns();}
+function selectYarnStatusOnly(s){if(activeYarnStatuses.size===1&&activeYarnStatuses.has(s)){activeYarnStatuses.clear();YARN_DEFAULT_STATUSES.forEach(x=>activeYarnStatuses.add(x));}else{activeYarnStatuses.clear();activeYarnStatuses.add(s);}syncYarnChips();renderYarns();}
 function toggleYarnCard(id){openYarnCardId=openYarnCardId===id?null:id;renderYarns();}
 function toggleYarnLogsExpand(id){expandedYarnLogIds.has(id)?expandedYarnLogIds.delete(id):expandedYarnLogIds.add(id);renderYarns();}
 function guardYarnEdit(id){const y=yarnList.find(x=>x.id===id);if(!y)return null;if(!canEditYarn(y)){showToast('✗ 只有建立者可以修改這筆資料');return null;}return y;}
@@ -2477,10 +2479,10 @@ function addYarnLog(id){
 }
 function deleteYarnLog(id,lid){if(isReadOnly(currentUserEmail))return;const y=yarnList.find(x=>x.id===id);if(!y)return;yarnRef.doc(id).update({logs:y.logs.filter(l=>l.id!==lid)}).catch(err=>showToast('✗ 刪除紀錄失敗：'+err.message));}
 function saveYarnLogEdit(id,lid){if(isReadOnly(currentUserEmail))return;const y=yarnList.find(x=>x.id===id);if(!y)return;const t=document.getElementById('log-edit-text-'+lid).value.trim(),d=document.getElementById('log-edit-date-'+lid).value;if(!t)return;yarnRef.doc(id).update({logs:y.logs.map(l=>l.id===lid?{...l,text:t,date:d||l.date}:l)}).catch(err=>showToast('✗ 更新紀錄失敗：'+err.message));}
-// 用到某支紗的開發項目存檔時：還在「洽談中／索樣中／已到樣」的紗，自動改成「已用於開發」（僅限有權限的人）
+// 用到某支紗的開發項目存檔時：還在「評估中」的紗，自動改成「已用於開發」（僅限有權限的人）
 function markYarnsUsed(ids){
   if(!yarnRef)return;
-  [...new Set(ids)].forEach(id=>{const y=yarnList.find(x=>x.id===id);if(y&&['洽談中','索樣中','已到樣'].includes(y.status)&&canEditYarn(y))yarnRef.doc(id).update({status:'已用於開發',updatedAt:TODAY}).catch(()=>{});});
+  [...new Set(ids)].forEach(id=>{const y=yarnList.find(x=>x.id===id);if(y&&y.status==='評估中'&&canEditYarn(y))yarnRef.doc(id).update({status:'已用於開發',updatedAt:TODAY}).catch(()=>{});});
 }
 function bindYarnToDev(yid,devId,rowIdx){
   const c=customers.find(x=>x.id===devId);if(!c)return;
@@ -2534,7 +2536,7 @@ function openYarnModal(id=null,copyFrom=null){
   document.getElementById('yarn-supplier-datalist').innerHTML=[...sups].sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(s=>`<option value="${escHtml(s)}">`).join('');
   document.getElementById('y-status').innerHTML=YARN_STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
   YARN_MODAL_FIELDS.forEach(([f,k])=>{document.getElementById(f).value=src&&src[k]!=null?src[k]:'';});
-  document.getElementById('y-status').value=id&&src?src.status:'洽談中';
+  document.getElementById('y-status').value=id&&src?src.status:'評估中';
   if(copyFrom){['y-spec','y-name','y-price','y-pricedate','y-next','y-nextdate','y-link'].forEach(f=>document.getElementById(f).value='');}
   if(!id&&!copyFrom)document.getElementById('y-pricedate').value='';
   yarnModalFuncs=src?[...(src.functions||[])]:[];
