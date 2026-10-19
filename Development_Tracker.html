@@ -82,6 +82,19 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .group-spacer{flex:1;}
 .group-body{display:flex;flex-direction:column;gap:8px;margin-left:12px;padding-left:12px;border-left:2px solid #C9C6F0;}
 .group-tools{font-size:12px;color:#3C3489;cursor:pointer;padding:3px 6px;}
+/* 紗支表格 */
+.yarn-table{width:100%;border-collapse:collapse;table-layout:fixed;}
+.yarn-table th{font-size:11.5px;font-weight:500;color:var(--color-text-secondary);text-align:left;padding:0 3px 3px;}
+.yarn-table td{padding:2px 3px;}
+.yarn-table td.yarn-idx{font-size:11px;color:var(--color-text-tertiary);text-align:right;padding-right:4px;}
+.yarn-table input{width:100%;box-sizing:border-box;padding:6px 8px;border:0.5px solid var(--color-border-tertiary);border-radius:6px;font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);font-family:inherit;}
+.yarn-total{font-size:12px;color:var(--color-text-secondary);margin-top:4px;text-align:right;}
+.yarn-total.warn{color:#B3261E;font-weight:500;}
+.yarn-view{border-collapse:collapse;font-size:13px;margin:2px 0 8px;width:100%;max-width:560px;}
+.yarn-view th{font-size:11.5px;font-weight:500;color:var(--color-text-secondary);text-align:left;padding:3px 8px 3px 0;border-bottom:0.5px solid var(--color-border-tertiary);}
+.yarn-view td{padding:4px 8px 4px 0;border-bottom:0.5px solid var(--color-border-tertiary);vertical-align:top;}
+.yarn-view td.pct{white-space:nowrap;font-weight:500;width:60px;}
+.yarn-view td.brand{white-space:nowrap;width:90px;}
 /* 印花開發 */
 .step-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:5px;}
 .step-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);background:var(--color-background-primary);user-select:none;}
@@ -538,7 +551,16 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="field"><label>Knitter</label><input id="f-knitter" type="text" placeholder="織廠"></div>
     <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠名稱"></div>
     <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
-    <div class="field"><label>Yarn</label><textarea id="f-yarn" rows="2" placeholder="紗支"></textarea></div>
+    <div class="field"><label>Yarn 紗支</label>
+      <table class="yarn-table">
+        <colgroup><col style="width:16px"><col style="width:58px"><col style="width:26%"><col></colgroup>
+        <thead><tr><th></th><th>成份 %</th><th>廠牌</th><th>紗規</th></tr></thead>
+        <tbody id="f-yarn-rows"></tbody>
+      </table>
+      <div class="yarn-total" id="f-yarn-total"></div>
+      <datalist id="yarn-brand-datalist"></datalist>
+    </div>
+    <div class="field"><label>紗線備註</label><textarea id="f-yarn-note" rows="2" placeholder="色號、缸號、GB 說明、測試結果等（選填）"></textarea></div>
     <div class="field"><label>開始日期</label><input id="f-startdate" type="date"></div>
     <div class="field"><label>Due Date</label><input id="f-duedate" type="date"></div>
     <div class="field"><label>開發狀態</label>
@@ -930,19 +952,109 @@ function syncChips(){
   }
 }
 
+/* ── 紗支表格：成份 / 廠牌 / 紗規，最多 5 列 ──
+   yarnRows 是主要資料；yarn 文字版自動產生，給搜尋、卡片比較、匯出沿用 */
+const YARN_ROW_MAX=5;
+const YARN_BRANDS=['曉星','東隆','勝隆','英威達','南亞','中紡','Lycra','台化','聚隆','集盛','新光','東帝龍','羽台','台塑旭','Nilit','展頌','泰和','力麗','力鵬','財億','遠東','佳和','泰光','安和鴻','東和','裕源','信榮','宏遠','福懋'];
+const YARN_NOT_BRAND=['正面','反面','表面','底面','面紗','底紗'];
+function splitYarnBrandSpec(rest){
+  rest=rest.trim();
+  const lower=rest.toLowerCase();
+  const hit=[...YARN_BRANDS].sort((a,b)=>b.length-a.length).find(b=>lower.startsWith(b.toLowerCase()));
+  if(hit)return {brand:hit,spec:rest.slice(hit.length).trim()};
+  const first=rest.split(/\s+/)[0];
+  if(/^[一-鿿]{2,4}$/.test(first)&&!YARN_NOT_BRAND.includes(first))return {brand:first,spec:rest.slice(first.length).trim()};
+  return {brand:'',spec:rest};
+}
+// 舊的文字紗支 → {rows, note}；看不懂的行原文放進 note，不丟任何內容
+function parseYarn(text){
+  const rows=[],note=[];
+  String(text==null?'':text).split(/\r?\n/).forEach(raw=>{
+    const line=raw.trim();if(!line)return;
+    const cleaned=line.replace(/^[+"'“”\s]+/,'').replace(/["'“”\s]+$/,'');
+    const m=cleaned.match(/^(\d+(?:\.\d+)?)\s*%\s*(.+)$/);
+    if(m&&rows.length<YARN_ROW_MAX){const {brand,spec}=splitYarnBrandSpec(m[2]);rows.push({pct:m[1],brand,spec});}
+    else note.push(line);
+  });
+  return {rows,note:note.join('\n')};
+}
+// 尚未轉換的舊資料：讀取時即時解析顯示（不寫回）；正式轉換由一次性 migrateYarnData() 處理
+function normalizeYarn(d){
+  if(!Array.isArray(d.yarnRows)){const p=parseYarn(d.yarn);d.yarnRows=p.rows;d.yarnNote=p.note;}
+  else if(d.yarnNote==null)d.yarnNote='';
+  return d;
+}
+// 一次性轉換（管理員在線上頁面執行）：只寫 yarnRows / yarnNote / yarn，原文保留在 yarnOriginal，不動 updatedAt
+function migrateYarnData(){
+  if(!ADMIN_EMAILS.includes(currentUserEmail))return Promise.reject(new Error('admin only'));
+  return itemsRef.get().then(snap=>{
+    const todo=snap.docs.filter(doc=>!Array.isArray(doc.data().yarnRows));
+    return Promise.all(todo.map(doc=>{const raw=doc.data().yarn||'';const p=parseYarn(raw);return itemsRef.doc(doc.id).update({yarnRows:p.rows,yarnNote:p.note,yarn:yarnRowsToText(p.rows),yarnOriginal:raw});})).then(()=>todo.length);
+  });
+}
+function yarnRowsToText(rows){return (rows||[]).map(r=>[r.pct!==''&&r.pct!=null?r.pct+'%':'',r.brand,r.spec].filter(Boolean).join(' ')).join('\n');}
+function yarnTotal(rows){return (rows||[]).reduce((s,r)=>s+(parseFloat(r.pct)||0),0);}
+function buildYarnEditor(){
+  const tb=document.getElementById('f-yarn-rows');if(!tb||tb.children.length)return;
+  let h='';
+  for(let i=0;i<YARN_ROW_MAX;i++)h+=`<tr><td class="yarn-idx">${i+1}</td><td><input id="f-yarn-pct-${i}" type="text" inputmode="decimal" placeholder="%" oninput="updateYarnTotal()"></td><td><input id="f-yarn-brand-${i}" type="text" list="yarn-brand-datalist" placeholder="廠牌"></td><td><input id="f-yarn-spec-${i}" type="text" placeholder="紗規"></td></tr>`;
+  tb.innerHTML=h;
+}
+function setYarnEditor(rows,note){
+  buildYarnEditor();
+  const brands=new Set(YARN_BRANDS);customers.forEach(c=>(c.yarnRows||[]).forEach(r=>{if(r.brand)brands.add(r.brand);}));
+  const dl=document.getElementById('yarn-brand-datalist');if(dl)dl.innerHTML=[...brands].sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(b=>`<option value="${escHtml(b)}">`).join('');
+  for(let i=0;i<YARN_ROW_MAX;i++){
+    const r=(rows||[])[i]||{};
+    document.getElementById('f-yarn-pct-'+i).value=r.pct!=null?r.pct:'';
+    document.getElementById('f-yarn-brand-'+i).value=r.brand||'';
+    document.getElementById('f-yarn-spec-'+i).value=r.spec||'';
+  }
+  document.getElementById('f-yarn-note').value=note||'';
+  updateYarnTotal();
+}
+function readYarnEditor(){
+  const rows=[];
+  for(let i=0;i<YARN_ROW_MAX;i++){
+    const pct=document.getElementById('f-yarn-pct-'+i).value.replace(/%/g,'').trim();
+    const brand=document.getElementById('f-yarn-brand-'+i).value.trim();
+    const spec=document.getElementById('f-yarn-spec-'+i).value.trim();
+    if(pct||brand||spec)rows.push({pct,brand,spec});
+  }
+  return {rows,note:document.getElementById('f-yarn-note').value.trim()};
+}
+function updateYarnTotal(){
+  const el=document.getElementById('f-yarn-total');if(!el)return;
+  const {rows}=readYarnEditor();
+  const withPct=rows.filter(r=>r.pct!=='');
+  if(!withPct.length){el.textContent='';el.className='yarn-total';return;}
+  const t=Math.round(yarnTotal(rows)*100)/100;
+  const off=Math.abs(t-100)>0.5;
+  el.textContent=`成份合計 ${t}%${off?'（不等於 100%，請確認）':''}`;
+  el.className='yarn-total'+(off?' warn':'');
+}
+function yarnViewHTML(c){
+  const rows=c.yarnRows||[];
+  const table=rows.length?`<table class="yarn-view"><thead><tr><th>成份</th><th>廠牌</th><th>紗規</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="pct">${r.pct!==''&&r.pct!=null?escHtml(r.pct)+'%':'—'}</td><td class="brand">${escHtml(r.brand||'—')}</td><td>${escHtml(r.spec||'—')}</td></tr>`).join('')}</tbody></table>`:'';
+  const note=c.yarnNote?`<div class="info-item-block">紗線備註：<strong>${escHtml(c.yarnNote).replace(/\n/g,'<br>')}</strong></div>`:'';
+  return (table||note)?`<div class="info-item-block" style="margin-bottom:2px">Yarn：</div>${table}${note}`:'';
+}
+
 function openModal(id=null){
   editingCustomerId=id;
-  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn','f-startdate','f-duedate'];
-  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn','startDate','dueDate'];
+  const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-startdate','f-duedate'];
+  const keys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','startDate','dueDate'];
   if(id){
     const c=customers.find(x=>x.id===id);
     document.getElementById('modal-title').textContent='編輯項目';
     fields.forEach((f,i)=>document.getElementById(f).value=c[keys[i]]||'');
+    setYarnEditor(c.yarnRows,c.yarnNote);
     document.getElementById('f-status').value=c.status;
     document.getElementById('f-priority').value=c.priority||'';
   }else{
     document.getElementById('modal-title').textContent='新增項目';
     fields.forEach(f=>document.getElementById(f).value='');
+    setYarnEditor([],'');
     document.getElementById('f-startdate').value=TODAY;
     document.getElementById('f-status').value=STATUSES[0];
     document.getElementById('f-priority').value='';
@@ -955,9 +1067,10 @@ function duplicateCustomer(id){
   const c=customers.find(x=>x.id===id);
   if(!c)return;
   openModal();
-  const specFields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-yarn'];
-  const specKeys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge','yarn'];
+  const specFields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge'];
+  const specKeys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge'];
   specFields.forEach((f,i)=>{document.getElementById(f).value=c[specKeys[i]]||'';});
+  setYarnEditor(c.yarnRows,c.yarnNote);
   document.getElementById('modal-title').textContent='新增項目（已複製規格，請確認 Article# 等欄位）';
 }
 function saveCustomer(){
@@ -980,13 +1093,14 @@ function saveCustomer(){
     knitter:document.getElementById('f-knitter').value.trim(),
     dyehouse:document.getElementById('f-dyehouse').value.trim(),
     gauge:document.getElementById('f-gauge').value.trim(),
-    yarn:document.getElementById('f-yarn').value.trim(),
     startDate:document.getElementById('f-startdate').value,
     dueDate:document.getElementById('f-duedate').value,
     status:document.getElementById('f-status').value,
     priority:document.getElementById('f-priority').value,
     updatedAt:TODAY
   };
+  const y=readYarnEditor();
+  data.yarnRows=y.rows;data.yarnNote=y.note;data.yarn=yarnRowsToText(y.rows);
   if(editingCustomerId){
     itemsRef.doc(editingCustomerId).update(data).catch(err=>showToast('✗ 更新失敗：'+err.message));
   } else {
@@ -1087,9 +1201,9 @@ function renderCardBody(id){
   const editable=canEdit(c);
   const canLog=!isReadOnly(currentUserEmail);
   const shortFields=[['Development Type',c.devType],['Developer',c.developer],['Family',c.family],['Season',c.season],['CW',c.cw],['GSM',c.gsm],['Knitter',c.knitter],['染廠',c.dyehouse],['Gauge',c.gauge],['開始日期',c.startDate],['Due Date',c.dueDate],['建立者',displayName(c.createdBy)]];
-  const longFields=[['Request',c.request],['Yarn',c.yarn]];
+  const longFields=[['Request',c.request]];
   const shortItems=shortFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${v}</strong></div>`).join('');
-  const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('');
+  const longItems=longFields.filter(([,v])=>v).map(([k,v])=>`<div class="info-item-block">${k}：<strong>${v.replace(/\n/g,'<br>')}</strong></div>`).join('')+yarnViewHTML(c);
   const infoHTML=(shortItems||longItems)?`${shortItems?`<div class="info-grid">${shortItems}</div>`:''}${longItems}`:'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:6px">尚無其他資訊，點「編輯項目」補上</div>';
   const statusHTML=STATUSES.map(s=>{const sel=c.status===s;const sc=statusColor(s);const style=sel?`background:${sc.bg};color:${sc.fg};border-color:${sc.border}`:'';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setStatus('${id}','${s}')">${s}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${s}</span>`;}).join('');
   const priorityHTML=PRIORITIES.map(p=>{const sel=c.priority===p;const pc=priorityColor(p);const style=sel?`background:${pc.bg};color:${pc.fg};border-color:${pc.border}`:'';return editable?`<button class="priority-btn${sel?' sel':''}" style="${style}" onclick="setPriority('${id}','${p}')">${p}</button>`:`<span class="priority-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${p}</span>`;}).join('');
@@ -1179,7 +1293,7 @@ function render(){
       if(!c.dueDate||c.dueDate<dueCustomStart||c.dueDate>dueCustomEnd)return false;
     }
     if(qTerms.length){
-      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.gsm,c.gauge,c.knitter,c.dyehouse,c.yarn].join(' ').toLowerCase();
+      const hay=[c.brand,c.article,c.developer,c.devType,c.request,c.family,c.season,c.cw,c.gsm,c.gauge,c.knitter,c.dyehouse,c.yarn,c.yarnNote].join(' ').toLowerCase();
       if(!qTerms.every(t=>hay.includes(t)))return false;
     }
     return true;
@@ -1963,7 +2077,7 @@ function attachFirestoreListener(){
   const db=firebase.firestore();
   itemsRef=db.collection('dev_tracker_items');
   unsubscribeItems=itemsRef.onSnapshot(snapshot=>{
-    customers=snapshot.docs.map(doc=>{const d=doc.data();if(!d.logs)d.logs=[];return {id:doc.id,...d};});
+    customers=snapshot.docs.map(doc=>{const d=doc.data();if(!d.logs)d.logs=[];normalizeYarn(d);return {id:doc.id,...d};});
     render();
     renderDashboard();
   }, err=>{
