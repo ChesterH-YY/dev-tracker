@@ -1139,6 +1139,46 @@ function onComboChange(id){
   else{inp.value=sel.value;inp.style.display='none';}
 }
 function syncAllCombos(){Object.keys(COMBO_FIELDS).forEach(syncCombo);}
+// 新增廠商名稱時的格式規則：去掉「針織／公司」等後綴，多家用「 / 」分隔；並比對既有名稱避免同一家建成兩個選項
+const VENDOR_SUFFIX={knitter:/(股份有限公司|有限公司|針織廠|針織|公司)$/,dyehouse:/(股份有限公司|有限公司|公司)$/};
+function cleanVendorName(key,v){
+  const re=VENDOR_SUFFIX[key];
+  const strip=p=>{let s=p.trim(),prev;do{prev=s;if(re)s=s.replace(re,'').trim();}while(s&&s!==prev);return s||p.trim();};
+  return String(v||'').replace(/\s+/g,' ').trim().split(/\s*[\/／、,，]\s*/).map(strip).filter(Boolean).join(' / ');
+}
+function editDistance(a,b){
+  const d=Array.from({length:a.length+1},(_,i)=>[i,...Array(b.length).fill(0)]);
+  for(let j=1;j<=b.length;j++)d[0][j]=j;
+  for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+  return d[a.length][b.length];
+}
+function findSimilarVendor(key,v){
+  const n=x=>String(x).replace(/\s+/g,'').toLowerCase();const t=n(v);if(!t)return null;
+  const opts=comboOptions(key);
+  const exact=opts.find(o=>n(o)===t);if(exact)return {match:exact,exact:true};
+  const near=opts.find(o=>{const k=n(o);return k.includes(t)||t.includes(k)||(t.length>=2&&editDistance(k,t)<=1);});
+  return near?{match:near,exact:false}:null;
+}
+function resolveNewVendors(){
+  Object.keys(COMBO_FIELDS).forEach(id=>{
+    const sel=document.getElementById(id+'-sel'),inp=document.getElementById(id);
+    if(!sel||!inp||sel.value!=='__new__')return;
+    const key=COMBO_FIELDS[id];
+    const resolveOne=name=>{
+      const sim=findSimilarVendor(key,name);
+      if(!sim)return name;
+      if(sim.exact)return sim.match;
+      return confirm(`「${name}」跟既有的「${sim.match}」很像，是同一家嗎？\n\n按「確定」改用「${sim.match}」\n按「取消」保留「${name}」為新名稱`)?sim.match:name;
+    };
+    let v=cleanVendorName(key,inp.value);
+    if(v.includes(' / ')){
+      // 多家：先看整串是否已存在，否則逐一比對每一家
+      const whole=findSimilarVendor(key,v);
+      v=whole&&whole.exact?whole.match:v.split(' / ').map(p=>{const s=findSimilarVendor(key,p);return s&&s.match.includes(' / ')?p:resolveOne(p);}).join(' / ');
+    }else v=resolveOne(v);
+    inp.value=v;
+  });
+}
 // 客指開發一定要有 Developer（品牌端窗口）：標籤加 *、存檔時檢查
 const DEVELOPER_REQUIRED_TYPE='客指開發';
 function updateDeveloperRequired(){
@@ -1198,6 +1238,7 @@ function saveCustomer(){
     showToast('客指開發請填寫 Developer');
     return;
   }
+  resolveNewVendors();
   if(editingCustomerId){
     const existing=customers.find(x=>x.id===editingCustomerId);
     if(existing && !canEdit(existing)){showToast('✗ 你沒有權限編輯這筆資料');closeModal();return;}
