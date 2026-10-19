@@ -82,6 +82,30 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .group-spacer{flex:1;}
 .group-body{display:flex;flex-direction:column;gap:8px;margin-left:12px;padding-left:12px;border-left:2px solid #C9C6F0;}
 .group-tools{font-size:12px;color:#3C3489;cursor:pointer;padding:3px 6px;}
+/* 加寬表單 (A1)：分區 + 每列多欄，儲存列固定在底部 */
+.modal.modal-wide{width:880px;max-width:94vw;padding:0;display:flex;flex-direction:column;overflow:hidden;}
+.modal-wide .modal-head{padding:1.1rem 1.5rem .2rem;}
+.modal-wide .modal-head h3{margin:0;}
+.modal-wide .modal-body{flex:1;min-height:0;overflow-y:auto;padding:.4rem 1.5rem 1rem;}
+.modal-wide .modal-foot{margin:0;padding:.85rem 1.5rem;border-top:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);}
+.modal-wide .modal-foot button{flex:0 0 auto;min-width:110px;}
+.modal-wide .modal-foot .btn-cancel{margin-left:auto;}
+.mf-sec{font-size:12.5px;font-weight:600;color:#3C3489;margin:18px 0 10px;padding-bottom:5px;border-bottom:0.5px solid var(--color-border-tertiary);}
+.mf-hint{font-weight:400;color:var(--color-text-tertiary);font-size:11.5px;margin-left:6px;}
+.mf-grid{display:grid;gap:10px 14px;margin-bottom:10px;}
+.mf-grid .field{margin-bottom:0;}
+.mf-grid.c2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.mf-grid.c3{grid-template-columns:repeat(3,minmax(0,1fr));}
+.mf-grid.c4{grid-template-columns:repeat(4,minmax(0,1fr));}
+.mf-grid.c5{grid-template-columns:repeat(5,minmax(0,1fr));}
+.mf-grid.next-grid{grid-template-columns:minmax(0,3fr) minmax(0,1fr);}
+.chip-select{display:none !important;}
+.mchips{display:flex;flex-wrap:wrap;gap:6px;}
+.mchip{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);font-size:12.5px;color:var(--color-text-secondary);cursor:pointer;font-family:inherit;line-height:1.3;}
+.mchip:hover{border-color:#3C3489;}
+.mchip.on{font-weight:600;}
+@media (max-width:760px){.mf-grid.c3,.mf-grid.c4,.mf-grid.c5{grid-template-columns:repeat(2,minmax(0,1fr));}.mf-grid.next-grid{grid-template-columns:minmax(0,1fr);}}
+@media (max-width:480px){.mf-grid.c2,.mf-grid.c3,.mf-grid.c4,.mf-grid.c5{grid-template-columns:minmax(0,1fr);}.modal-wide .modal-body,.modal-wide .modal-head,.modal-wide .modal-foot{padding-left:1rem;padding-right:1rem;}}
 /* 紗支表格 */
 .yarn-table{width:100%;border-collapse:collapse;table-layout:fixed;}
 .yarn-table th{font-size:11.5px;font-weight:500;color:var(--color-text-secondary);text-align:left;padding:0 3px 3px;}
@@ -529,52 +553,60 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 
 <div id="modal-bg" class="modal-bg" style="display:none">
-  <div class="modal">
-    <h3 id="modal-title">新增項目</h3>
-    <div class="field"><label>Brand *</label><input id="f-brand" type="text" list="brand-datalist" placeholder="Brand 品牌名稱（可從清單選或直接輸入新品牌）"><datalist id="brand-datalist"></datalist></div>
-    <div class="field"><label>Development Type</label>
-      <select id="f-devtype">
-        <option value="">— 未設定 —</option>
-        <option value="客指開發">客指開發</option>
-        <option value="自主開發">自主開發</option>
-        <option value="概念驗證">概念驗證</option>
-        <option value="Sourcing">Sourcing</option>
-      </select>
+  <div class="modal modal-wide">
+    <div class="modal-head"><h3 id="modal-title">新增項目</h3></div>
+    <div class="modal-body">
+      <div class="mf-sec">基本資訊</div>
+      <div class="mf-grid c3">
+        <div class="field"><label>品牌 *</label><input id="f-brand" type="text" list="brand-datalist" placeholder="可從清單選或直接輸入"><datalist id="brand-datalist"></datalist></div>
+        <div class="field"><label>Article#</label><input id="f-article" type="text" placeholder="布號 / 料號"></div>
+        <div class="field"><label>Family 系列</label><input id="f-family" type="text" list="family-datalist" placeholder="可從清單選或直接輸入"><datalist id="family-datalist"></datalist></div>
+        <div class="field"><label>Season 季節</label><input id="f-season" type="text" placeholder="例：SS27"></div>
+        <div class="field"><label>開發類型</label>
+          <select id="f-devtype">
+            <option value="">— 未設定 —</option>
+            <option value="客指開發">客指開發</option>
+            <option value="自主開發">自主開發</option>
+            <option value="概念驗證">概念驗證</option>
+            <option value="Sourcing">Sourcing</option>
+          </select>
+        </div>
+        <div class="field"><label>Developer 開發人員</label><input id="f-developer" type="text" placeholder="開發人員"></div>
+      </div>
+
+      <div class="mf-sec">進度與時程</div>
+      <div class="field"><label>開發狀態</label><select id="f-status" class="chip-select"></select><div class="mchips" id="f-status-chips"></div></div>
+      <div class="mf-grid c3">
+        <div class="field"><label>優先度</label><select id="f-priority" class="chip-select" data-toggle="1"><option value="">— 未設定 —</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select><div class="mchips" id="f-priority-chips"></div></div>
+        <div class="field"><label>開始日期</label><input id="f-startdate" type="date"></div>
+        <div class="field"><label>交期 Due Date</label><input id="f-duedate" type="date"></div>
+      </div>
+
+      <div class="mf-sec">開發需求</div>
+      <div class="field"><label>Request 需求內容</label><textarea id="f-request" rows="2" placeholder="客戶需求、目標規格、參考樣等"></textarea></div>
+
+      <div class="mf-sec">紗支</div>
+      <div class="field">
+        <table class="yarn-table">
+          <colgroup><col style="width:18px"><col style="width:80px"><col style="width:24%"><col></colgroup>
+          <thead><tr><th></th><th>成份 %</th><th>廠牌</th><th>紗規</th></tr></thead>
+          <tbody id="f-yarn-rows"></tbody>
+        </table>
+        <div class="yarn-total" id="f-yarn-total"></div>
+        <datalist id="yarn-brand-datalist"></datalist>
+      </div>
+      <div class="field"><label>紗線備註</label><textarea id="f-yarn-note" rows="2" placeholder="色號、缸號、GB 說明、測試結果等（選填）"></textarea></div>
+
+      <div class="mf-sec">布料規格 <span class="mf-hint">織造 → 染整 → 成品</span></div>
+      <div class="mf-grid c5">
+        <div class="field"><label>Gauge 針數</label><input id="f-gauge" type="text" placeholder="例：32G"></div>
+        <div class="field"><label>Knitter 織廠</label><input id="f-knitter" type="text" placeholder="織廠"></div>
+        <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠"></div>
+        <div class="field"><label>CW 可裁幅寬</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
+        <div class="field"><label>GSM 克重</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
+      </div>
     </div>
-    <div class="field"><label>Developer</label><input id="f-developer" type="text" placeholder="開發人員"></div>
-    <div class="field"><label>Request</label><textarea id="f-request" rows="2" placeholder="需求內容"></textarea></div>
-    <div class="field"><label>Family</label><input id="f-family" type="text" list="family-datalist" placeholder="系列 / Family（可從清單選或直接輸入）"><datalist id="family-datalist"></datalist></div>
-    <div class="field"><label>Season</label><input id="f-season" type="text" placeholder="季節，如 SS27"></div>
-    <div class="field"><label>Article#</label><input id="f-article" type="text" placeholder="布號 / 料號"></div>
-    <div class="field"><label>CW</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="可裁幅寬（純數字）"></div>
-    <div class="field"><label>GSM</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="克重（純數字）"></div>
-    <div class="field"><label>Knitter</label><input id="f-knitter" type="text" placeholder="織廠"></div>
-    <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠名稱"></div>
-    <div class="field"><label>Gauge</label><input id="f-gauge" type="text" placeholder="支數 / 針距"></div>
-    <div class="field"><label>Yarn 紗支</label>
-      <table class="yarn-table">
-        <colgroup><col style="width:16px"><col style="width:58px"><col style="width:26%"><col></colgroup>
-        <thead><tr><th></th><th>成份 %</th><th>廠牌</th><th>紗規</th></tr></thead>
-        <tbody id="f-yarn-rows"></tbody>
-      </table>
-      <div class="yarn-total" id="f-yarn-total"></div>
-      <datalist id="yarn-brand-datalist"></datalist>
-    </div>
-    <div class="field"><label>紗線備註</label><textarea id="f-yarn-note" rows="2" placeholder="色號、缸號、GB 說明、測試結果等（選填）"></textarea></div>
-    <div class="field"><label>開始日期</label><input id="f-startdate" type="date"></div>
-    <div class="field"><label>Due Date</label><input id="f-duedate" type="date"></div>
-    <div class="field"><label>開發狀態</label>
-      <select id="f-status"></select>
-    </div>
-    <div class="field"><label>優先度</label>
-      <select id="f-priority">
-        <option value="">— 未設定 —</option>
-        <option value="高">高</option>
-        <option value="中">中</option>
-        <option value="低">低</option>
-      </select>
-    </div>
-    <div class="modal-btns">
+    <div class="modal-btns modal-foot">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
       <button class="btn-confirm" onclick="saveCustomer()">儲存</button>
     </div>
@@ -582,27 +614,44 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 
 <div id="print-modal-bg" class="modal-bg" style="display:none">
-  <div class="modal">
-    <h3 id="print-modal-title">新增印花</h3>
-    <div class="field"><label>品牌 *</label><input id="p-brand" type="text" list="brand-datalist" placeholder="品牌（可從清單選或直接輸入）"></div>
-    <div class="field"><label>花型名稱／編號 *</label><input id="p-name" type="text" placeholder="例：Floral Camo / PR-2401"></div>
-    <div class="field"><label>底布 Article#</label><input id="p-base" type="text" list="print-base-datalist" placeholder="可從開發項目的 Article# 選"><datalist id="print-base-datalist"></datalist></div>
-    <div class="field"><label>負責業務 *</label><input id="p-owner" type="text" list="print-owner-datalist" placeholder="選擇或輸入業務姓名"><datalist id="print-owner-datalist"></datalist></div>
-    <div class="field"><label>案子狀態</label><select id="p-case"></select></div>
-    <div class="field"><label>步驟</label><div class="modal-steps" id="p-steps"></div></div>
-    <div class="field"><label>等待對象</label><select id="p-wait"></select></div>
-    <div class="field"><label>下一步</label><input id="p-next" type="text" placeholder="例：寄第二輪 strike-off 給客戶"></div>
-    <div class="field"><label>下一步日期</label><input id="p-nextdate" type="date"></div>
-    <div class="field"><label>客戶交期</label><input id="p-due" type="date"></div>
-    <div class="field"><label>優先度</label>
-      <select id="p-priority"><option value="">— 未設定 —</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select>
+  <div class="modal modal-wide">
+    <div class="modal-head"><h3 id="print-modal-title">新增印花</h3></div>
+    <div class="modal-body">
+      <div class="mf-sec">基本資訊</div>
+      <div class="mf-grid c3">
+        <div class="field"><label>品牌 *</label><input id="p-brand" type="text" list="brand-datalist" placeholder="可從清單選或直接輸入"></div>
+        <div class="field"><label>花型名稱／編號 *</label><input id="p-name" type="text" placeholder="例：Floral Camo / PR-2401"></div>
+        <div class="field"><label>負責業務 *</label><input id="p-owner" type="text" list="print-owner-datalist" placeholder="選擇或輸入業務姓名"><datalist id="print-owner-datalist"></datalist></div>
+        <div class="field"><label>底布 Article#</label><input id="p-base" type="text" list="print-base-datalist" placeholder="可從開發項目的 Article# 選"><datalist id="print-base-datalist"></datalist></div>
+        <div class="field"><label>印花廠</label><input id="p-house" type="text" list="print-house-datalist" placeholder="選填"><datalist id="print-house-datalist"></datalist></div>
+        <div class="field"><label>Season 季節</label><input id="p-season" type="text" placeholder="選填，例：SP28"></div>
+      </div>
+
+      <div class="mf-sec">進度與時程</div>
+      <div class="mf-grid c2">
+        <div class="field"><label>案子狀態</label><select id="p-case" class="chip-select"></select><div class="mchips" id="p-case-chips"></div></div>
+        <div class="field"><label>等待對象</label><select id="p-wait" class="chip-select" data-toggle="1"></select><div class="mchips" id="p-wait-chips"></div></div>
+      </div>
+      <div class="mf-grid c3">
+        <div class="field"><label>優先度</label><select id="p-priority" class="chip-select" data-toggle="1"><option value="">— 未設定 —</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select><div class="mchips" id="p-priority-chips"></div></div>
+        <div class="field"><label>客戶交期</label><input id="p-due" type="date"></div>
+        <div class="field"><label>打樣輪次</label><input id="p-round" type="number" min="0" step="1" inputmode="numeric" placeholder="選填，目前第幾次"></div>
+      </div>
+
+      <div class="mf-sec">步驟</div>
+      <div class="mf-grid c4" id="p-steps"></div>
+
+      <div class="mf-sec">下一步</div>
+      <div class="mf-grid next-grid">
+        <div class="field"><label>下一步要做什麼</label><input id="p-next" type="text" placeholder="例：寄第二輪 strike-off 給客戶"></div>
+        <div class="field"><label>下一步日期</label><input id="p-nextdate" type="date"></div>
+      </div>
+
+      <div class="mf-sec">其他</div>
+      <div class="field"><label>圖稿連結</label><input id="p-link" type="url" placeholder="選填，Google Drive / Dropbox 連結"></div>
+      <div class="field"><label>備註</label><textarea id="p-note" rows="2" placeholder="選填"></textarea></div>
     </div>
-    <div class="field"><label>印花廠</label><input id="p-house" type="text" list="print-house-datalist" placeholder="選填"><datalist id="print-house-datalist"></datalist></div>
-    <div class="field"><label>Season</label><input id="p-season" type="text" placeholder="選填，例：SP28"></div>
-    <div class="field"><label>打樣輪次</label><input id="p-round" type="number" min="0" step="1" inputmode="numeric" placeholder="選填，目前第幾次打樣"></div>
-    <div class="field"><label>圖稿連結</label><input id="p-link" type="url" placeholder="選填，Google Drive / Dropbox 連結"></div>
-    <div class="field"><label>備註</label><textarea id="p-note" rows="2" placeholder="選填"></textarea></div>
-    <div class="modal-btns">
+    <div class="modal-btns modal-foot">
       <button class="btn-cancel" onclick="closePrintModal()">取消</button>
       <button class="btn-confirm" onclick="savePrint()">儲存</button>
     </div>
@@ -1040,6 +1089,30 @@ function yarnViewHTML(c){
   return (table||note)?`<div class="info-item-block" style="margin-bottom:2px">Yarn：</div>${table}${note}`:'';
 }
 
+/* 表單裡的狀態／優先度等改成可點選的標籤；實際值仍存在隱藏的 <select>，原本的存檔邏輯不用改 */
+function chipColorFor(selectId,v){
+  if(selectId==='f-status')return statusColor(v);
+  if(selectId==='f-priority'||selectId==='p-priority')return priorityColor(v);
+  if(selectId==='p-case')return PRINT_CASE_COLORS[v];
+  if(selectId==='p-wait')return PRINT_WAIT_COLORS[v];
+  return null;
+}
+function renderSelectChips(selectId){
+  const sel=document.getElementById(selectId),box=document.getElementById(selectId+'-chips');
+  if(!sel||!box)return;
+  box.innerHTML=[...sel.options].filter(o=>o.value!=='').map(o=>{
+    const on=sel.value===o.value,c=on?chipColorFor(selectId,o.value):null;
+    const style=on&&c?` style="background:${c.bg};color:${c.fg};border-color:${c.border}"`:'';
+    return `<button type="button" class="mchip${on?' on':''}"${style} data-v="${escHtml(o.value)}" onclick="pickSelectChip('${selectId}',this.dataset.v)">${escHtml(o.textContent)}</button>`;
+  }).join('');
+}
+function pickSelectChip(selectId,v){
+  const sel=document.getElementById(selectId);if(!sel)return;
+  sel.value=(sel.dataset.toggle&&sel.value===v)?'':v;
+  renderSelectChips(selectId);
+}
+function renderModalChips(ids){ids.forEach(renderSelectChips);}
+
 function openModal(id=null){
   editingCustomerId=id;
   const fields=['f-brand','f-devtype','f-developer','f-request','f-family','f-season','f-article','f-cw','f-gsm','f-knitter','f-dyehouse','f-gauge','f-startdate','f-duedate'];
@@ -1059,6 +1132,8 @@ function openModal(id=null){
     document.getElementById('f-status').value=STATUSES[0];
     document.getElementById('f-priority').value='';
   }
+  renderModalChips(['f-status','f-priority']);
+  const mb=document.querySelector('#modal-bg .modal-body');if(mb)mb.scrollTop=0;
   document.getElementById('modal-bg').style.display='flex';setTimeout(()=>document.getElementById('f-brand').focus(),50);
 }
 function closeModal(){document.getElementById('modal-bg').style.display='none';editingCustomerId=null;}
@@ -1949,7 +2024,7 @@ function savePrintLogEdit(id,lid){
 function fillPrintModalSelects(){
   document.getElementById('p-case').innerHTML=PRINT_CASE_STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
   document.getElementById('p-wait').innerHTML='<option value="">— 無 —</option>'+PRINT_WAIT_OPTIONS.map(w=>`<option value="${w}">等${w}</option>`).join('');
-  document.getElementById('p-steps').innerHTML=PRINT_STEPS.map(([k,l])=>`<span>${l}</span><select id="p-step-${k}"><option value="todo">未完成</option><option value="done">完成</option><option value="na">不需要</option></select>`).join('');
+  document.getElementById('p-steps').innerHTML=PRINT_STEPS.map(([k,l])=>`<div class="field"><label>${l}</label><select id="p-step-${k}"><option value="todo">未完成</option><option value="done">完成</option><option value="na">不需要</option></select></div>`).join('');
 }
 const PRINT_MODAL_FIELDS=[['p-brand','brand'],['p-name','printName'],['p-base','baseArticle'],['p-owner','owner'],['p-next','nextStep'],['p-nextdate','nextDate'],['p-due','dueDate'],['p-priority','priority'],['p-house','printHouse'],['p-season','season'],['p-round','strikeRound'],['p-link','artworkLink'],['p-note','note']];
 function openPrintModal(id=null,copyFrom=null){
@@ -1965,6 +2040,8 @@ function openPrintModal(id=null,copyFrom=null){
   PRINT_STEPS.forEach(([k])=>{document.getElementById('p-step-'+k).value=id&&src?src.steps[k].state:'todo';});
   if(copyFrom){['p-name','p-next','p-nextdate','p-round','p-link'].forEach(f=>document.getElementById(f).value='');}
   document.getElementById('print-modal-title').textContent=id?'編輯印花':(copyFrom?'新增印花（已複製品牌、底布、業務等，請填花型名稱）':'新增印花');
+  renderModalChips(['p-case','p-wait','p-priority']);
+  const pmb=document.querySelector('#print-modal-bg .modal-body');if(pmb)pmb.scrollTop=0;
   document.getElementById('print-modal-bg').style.display='flex';
   setTimeout(()=>document.getElementById(copyFrom?'p-name':'p-brand').focus(),50);
 }
