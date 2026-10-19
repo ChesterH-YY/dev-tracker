@@ -82,6 +82,34 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .group-spacer{flex:1;}
 .group-body{display:flex;flex-direction:column;gap:8px;margin-left:12px;padding-left:12px;border-left:2px solid #C9C6F0;}
 .group-tools{font-size:12px;color:#3C3489;cursor:pointer;padding:3px 6px;}
+/* 印花開發 */
+.step-row{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:5px;}
+.step-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:2px 7px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);background:var(--color-background-primary);user-select:none;}
+.step-chip.clickable{cursor:pointer;}
+.step-chip.clickable:hover{border-color:#3C3489;}
+.step-chip.done{background:#E3F1E6;color:#1F6D3A;border-color:#8CC59B;}
+.step-chip.na{opacity:.45;text-decoration:line-through;}
+.step-progress{font-size:11px;color:var(--color-text-secondary);margin-left:2px;}
+.step-progress.all-done{color:#1F6D3A;font-weight:600;}
+.print-next{font-size:12px;color:var(--color-text-secondary);margin-top:4px;}
+.print-next.overdue{color:#B3261E;font-weight:600;}
+.flag-badge{font-size:11px;padding:1px 7px;border-radius:99px;background:#FDEBD3;color:#8A4B08;white-space:nowrap;}
+.customer-card.next-overdue{border-left:3px solid #B3261E;}
+.seg{display:inline-flex;border:0.5px solid var(--color-border-tertiary);border-radius:8px;overflow:hidden;}
+.seg button,.seg span{border:none;border-right:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);color:var(--color-text-secondary);padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit;}
+.seg span{cursor:default;}
+.seg button:last-child,.seg span:last-child{border-right:none;}
+.seg .sel-done{background:#E3F1E6;color:#1F6D3A;font-weight:600;}
+.seg .sel-todo{background:#EEEDFE;color:#3C3489;font-weight:600;}
+.seg .sel-na{background:#EEEEEC;color:#5F5E5A;font-weight:600;}
+.step-edit-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap;font-size:13px;}
+.step-edit-row .step-name{min-width:78px;font-weight:500;}
+.step-edit-row .step-date{font-size:11px;color:var(--color-text-tertiary);}
+.next-edit-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px;}
+.next-edit-row input[type=text]{flex:1;min-width:160px;padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:8px;font-size:13px;background:var(--color-background-primary);color:var(--color-text-primary);}
+.next-edit-row input[type=date]{padding:5px 8px;border:0.5px solid var(--color-border-tertiary);border-radius:8px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);}
+.print-search{padding:5px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:99px;font-size:12px;background:var(--color-background-primary);color:var(--color-text-primary);width:200px;}
+.modal-steps{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;font-size:13px;}
 .group-tools:hover{text-decoration:underline;}
 .customer-card.has-followup{border-color:#E05252;}
 .customer-card.is-overdue{border-left:3px solid #B3261E;}
@@ -278,6 +306,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
   <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
   <button class="btn-add" id="btn-add-feedback" style="display:none" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
+  <button class="btn-add" id="btn-add-print" style="display:none" onclick="openPrintModal()"><i class="ti ti-plus"></i> 新增印花</button>
   <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
 </div>
 <div id="toast" class="toast"></div>
@@ -288,6 +317,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 <div class="view-tabs">
   <button class="view-tab active" id="tab-dev" onclick="switchView('dev')">開發項目</button>
+  <button class="view-tab" id="tab-print" onclick="switchView('print')">印花開發</button>
   <button class="view-tab" id="tab-feedback" onclick="switchView('feedback')">品牌回饋</button>
   <button class="view-tab" id="tab-calc" onclick="switchView('calc')">試算工具</button>
   <button class="view-tab" id="tab-dashboard" onclick="switchView('dashboard')" style="display:none">儀表板</button>
@@ -339,6 +369,53 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 </div>
 <div class="stats-row" id="stats-row"></div>
 <div class="customer-list" id="customer-list"></div>
+</div>
+
+<div id="print-view" style="display:none">
+<div class="filter-section">
+  <div class="filter-group">
+    <span class="filter-group-label">案子狀態</span>
+    <label class="filter-chip chip-all" id="pchip-all" onclick="togglePrintCaseAll()"><span class="dot"></span>全部</label>
+    <span id="print-case-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">未完成步驟</span>
+    <span id="print-step-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">等待對象</span>
+    <span id="print-wait-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">提醒</span>
+    <span id="print-flag-chips"></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">負責業務</span>
+    <select class="mini-select" id="print-owner-filter" onchange="renderPrints()"><option value="">全部業務</option></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">品牌</span>
+    <select class="mini-select" id="print-brand-filter" onchange="renderPrints()"><option value="">全部品牌</option></select>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">分組檢視</span>
+    <select class="mini-select" id="print-group-by" onchange="setPrintGroupBy(this.value)">
+      <option value="none">不分組</option>
+      <option value="owner">依負責業務</option>
+      <option value="brand">依品牌</option>
+      <option value="baseArticle">依底布</option>
+      <option value="printHouse">依印花廠</option>
+    </select>
+    <span id="print-group-tools" style="display:none"><span class="group-tools" onclick="setAllPrintGroups(true)">全部展開</span><span class="group-tools" onclick="setAllPrintGroups(false)">全部收合</span></span>
+  </div>
+  <div class="filter-group">
+    <span class="filter-group-label">搜尋</span>
+    <input class="print-search" id="print-search" type="text" placeholder="花型、品牌、底布、印花廠…" oninput="renderPrints()">
+  </div>
+</div>
+<div class="stats-row" id="print-stats-row"></div>
+<div class="customer-list" id="print-list-el"></div>
 </div>
 
 <div id="feedback-view" style="display:none">
@@ -478,6 +555,34 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
     <div class="modal-btns">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
       <button class="btn-confirm" onclick="saveCustomer()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div id="print-modal-bg" class="modal-bg" style="display:none">
+  <div class="modal">
+    <h3 id="print-modal-title">新增印花</h3>
+    <div class="field"><label>品牌 *</label><input id="p-brand" type="text" list="brand-datalist" placeholder="品牌（可從清單選或直接輸入）"></div>
+    <div class="field"><label>花型名稱／編號 *</label><input id="p-name" type="text" placeholder="例：Floral Camo / PR-2401"></div>
+    <div class="field"><label>底布 Article#</label><input id="p-base" type="text" list="print-base-datalist" placeholder="可從開發項目的 Article# 選"><datalist id="print-base-datalist"></datalist></div>
+    <div class="field"><label>負責業務 *</label><input id="p-owner" type="text" list="print-owner-datalist" placeholder="選擇或輸入業務姓名"><datalist id="print-owner-datalist"></datalist></div>
+    <div class="field"><label>案子狀態</label><select id="p-case"></select></div>
+    <div class="field"><label>步驟</label><div class="modal-steps" id="p-steps"></div></div>
+    <div class="field"><label>等待對象</label><select id="p-wait"></select></div>
+    <div class="field"><label>下一步</label><input id="p-next" type="text" placeholder="例：寄第二輪 strike-off 給客戶"></div>
+    <div class="field"><label>下一步日期</label><input id="p-nextdate" type="date"></div>
+    <div class="field"><label>客戶交期</label><input id="p-due" type="date"></div>
+    <div class="field"><label>優先度</label>
+      <select id="p-priority"><option value="">— 未設定 —</option><option value="高">高</option><option value="中">中</option><option value="低">低</option></select>
+    </div>
+    <div class="field"><label>印花廠</label><input id="p-house" type="text" list="print-house-datalist" placeholder="選填"><datalist id="print-house-datalist"></datalist></div>
+    <div class="field"><label>Season</label><input id="p-season" type="text" placeholder="選填，例：SP28"></div>
+    <div class="field"><label>打樣輪次</label><input id="p-round" type="number" min="0" step="1" inputmode="numeric" placeholder="選填，目前第幾次打樣"></div>
+    <div class="field"><label>圖稿連結</label><input id="p-link" type="url" placeholder="選填，Google Drive / Dropbox 連結"></div>
+    <div class="field"><label>備註</label><textarea id="p-note" rows="2" placeholder="選填"></textarea></div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closePrintModal()">取消</button>
+      <button class="btn-confirm" onclick="savePrint()">儲存</button>
     </div>
   </div>
 </div>
@@ -1123,6 +1228,8 @@ function updateToolbarVisibility(){
   const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
+  const addPrintBtn=document.getElementById('btn-add-print');if(addPrintBtn)addPrintBtn.style.display=(currentView==='print'&&!ro)?'':'none';
+  const topSearch=document.getElementById('search');if(topSearch)topSearch.style.visibility=currentView==='dev'?'':'hidden';
   const dashTab=document.getElementById('tab-dashboard');if(dashTab)dashTab.style.display=canViewDashboard(currentUserEmail)?'':'none';
   updateCompareFloatButton();
 }
@@ -1131,6 +1238,8 @@ function switchView(view){
   currentView=view;
   document.getElementById('dev-view').style.display=view==='dev'?'block':'none';
   document.getElementById('feedback-view').style.display=view==='feedback'?'block':'none';
+  document.getElementById('print-view').style.display=view==='print'?'block':'none';
+  document.getElementById('tab-print').classList.toggle('active',view==='print');
   document.getElementById('calc-view').style.display=view==='calc'?'block':'none';
   document.getElementById('dashboard-view').style.display=view==='dashboard'?'block':'none';
   document.getElementById('tab-dev').classList.toggle('active',view==='dev');
@@ -1139,6 +1248,7 @@ function switchView(view){
   document.getElementById('tab-dashboard').classList.toggle('active',view==='dashboard');
   updateToolbarVisibility();
   if(view==='dashboard')renderDashboard();
+  if(view==='print')renderPrints();
 }
 
 /* ────────────────────────────────────────────────────────────
@@ -1494,8 +1604,310 @@ function deleteFeedback(id){
   feedbackRef.doc(id).delete().catch(err=>showToast('✗ 刪除失敗：'+err.message));
 }
 
+/* ────────────────────────────────────────────────────────────
+   印花開發 (Print development) — 給業務助理填、業務每週追進度
+   資料存在 Firestore 的 print_items，權限規則與開發項目相同
+   ──────────────────────────────────────────────────────────── */
+const PRINT_STEPS=[['fabric','底布準備'],['color','打色'],['layout','Layout'],['strikeoff','Strike-off']];
+const PRINT_CASE_STATUSES=['進行中','已核可','暫緩','取消'];
+const PRINT_CASE_COLORS={'進行中':{bg:'#EEEDFE',fg:'#3C3489',border:'#3C3489'},'已核可':{bg:'#E3F1E6',fg:'#1F6D3A',border:'#1F6D3A'},'暫緩':{bg:'#EEEEEC',fg:'#5F5E5A',border:'#5F5E5A'},'取消':{bg:'#FAECE7',fg:'#712B13',border:'#712B13'}};
+const PRINT_WAIT_OPTIONS=['客戶','印花廠','我方'];
+const PRINT_WAIT_COLORS={'客戶':{bg:'#E6F1FB',fg:'#0C447C',border:'#0C447C'},'印花廠':{bg:'#F0E6FB',fg:'#5B1E8C',border:'#5B1E8C'},'我方':{bg:'#FAEEDA',fg:'#633806',border:'#633806'}};
+const PRINT_OWNERS=['Chester','Peter','Joanna','Claire','Vivian'];
+const PRINT_STALLED_DAYS=7;
+const PRINT_FLAGS=[['nextOverdue','下一步逾期'],['stalled','停滯（'+PRINT_STALLED_DAYS+'天無更新）']];
+let printList=[],printRef=null,unsubscribePrints=null,editingPrintId=null,openPrintCardId=null;
+const activePrintCases=new Set(['進行中']),activePrintSteps=new Set(),activePrintWaits=new Set(),activePrintFlags=new Set();
+const printGroupExpanded=new Set(),expandedPrintLogIds=new Set();
+let printGroupKeys=[],printGroupBy='none';
+try{const g=localStorage.getItem('dt_printGroupBy');if(['none','owner','brand','baseArticle','printHouse'].includes(g))printGroupBy=g;}catch(e){}
+
+function normalizePrint(p){
+  const steps={};
+  PRINT_STEPS.forEach(([k])=>{const s=(p.steps&&p.steps[k])||{};steps[k]={state:['todo','done','na'].includes(s.state)?s.state:'todo',date:s.date||''};});
+  return {...p,steps,logs:p.logs||[],caseStatus:PRINT_CASE_STATUSES.includes(p.caseStatus)?p.caseStatus:'進行中'};
+}
+function canEditPrint(p){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||p.createdBy===currentUserEmail);}
+function printProgress(p){
+  const applicable=PRINT_STEPS.filter(([k])=>p.steps[k].state!=='na');
+  const done=applicable.filter(([k])=>p.steps[k].state==='done').length;
+  return {done,total:applicable.length};
+}
+function isPrintNextOverdue(p){return p.caseStatus==='進行中'&&!!p.nextDate&&p.nextDate<TODAY;}
+function isPrintStalled(p){if(p.caseStatus!=='進行中')return false;const ds=daysSince(p.updatedAt);return ds!==null&&ds>=PRINT_STALLED_DAYS;}
+function isPrintDueOverdue(p){return p.caseStatus==='進行中'&&!!p.dueDate&&p.dueDate<TODAY;}
+
+function chipStyle(on,c){return on&&c?`background:${c.bg};color:${c.fg};border-color:${c.border}`:'';}
+function buildPrintFilters(){
+  const caseEl=document.getElementById('print-case-chips');if(!caseEl)return;
+  caseEl.innerHTML=PRINT_CASE_STATUSES.map((s,i)=>`<label class="filter-chip" id="pchip-case-${i}" onclick="togglePrintSet('case','${s}')"><span class="dot"></span>${s}</label>`).join('');
+  document.getElementById('print-step-chips').innerHTML=PRINT_STEPS.map(([k,l])=>`<label class="filter-chip" id="pchip-step-${k}" onclick="togglePrintSet('step','${k}')"><span class="dot"></span>${l}</label>`).join('');
+  document.getElementById('print-wait-chips').innerHTML=PRINT_WAIT_OPTIONS.map((w,i)=>`<label class="filter-chip" id="pchip-wait-${i}" onclick="togglePrintSet('wait','${w}')"><span class="dot"></span>等${w}</label>`).join('');
+  document.getElementById('print-flag-chips').innerHTML=PRINT_FLAGS.map(([k,l])=>`<label class="filter-chip" id="pchip-flag-${k}" onclick="togglePrintSet('flag','${k}')"><span class="dot"></span>${l}</label>`).join('');
+}
+function syncPrintChips(){
+  const all=document.getElementById('pchip-all');if(!all)return;
+  all.classList.toggle('checked',activePrintCases.size===0);
+  const paint=(el,on,c)=>{if(!el)return;el.classList.toggle('checked',on);el.style.cssText=chipStyle(on,c);};
+  PRINT_CASE_STATUSES.forEach((s,i)=>paint(document.getElementById('pchip-case-'+i),activePrintCases.has(s),PRINT_CASE_COLORS[s]));
+  PRINT_STEPS.forEach(([k])=>paint(document.getElementById('pchip-step-'+k),activePrintSteps.has(k),PRINT_CASE_COLORS['進行中']));
+  PRINT_WAIT_OPTIONS.forEach((w,i)=>paint(document.getElementById('pchip-wait-'+i),activePrintWaits.has(w),PRINT_WAIT_COLORS[w]));
+  PRINT_FLAGS.forEach(([k])=>paint(document.getElementById('pchip-flag-'+k),activePrintFlags.has(k),{bg:'#FDEBD3',fg:'#8A4B08',border:'#8A4B08'}));
+}
+function togglePrintSet(kind,v){
+  const set={case:activePrintCases,step:activePrintSteps,wait:activePrintWaits,flag:activePrintFlags}[kind];
+  set.has(v)?set.delete(v):set.add(v);
+  syncPrintChips();renderPrints();
+}
+function togglePrintCaseAll(){activePrintCases.clear();syncPrintChips();renderPrints();}
+function buildPrintSelectOptions(){
+  const fill=(id,allLabel,values)=>{const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;sel.innerHTML=`<option value="">${allLabel}</option>`+values.map(v=>`<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');sel.value=values.includes(cur)?cur:'';};
+  const uniq=arr=>[...new Set(arr.map(v=>String(v||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  fill('print-owner-filter','全部業務',uniq([...PRINT_OWNERS,...printList.map(p=>p.owner)]));
+  fill('print-brand-filter','全部品牌',uniq(printList.map(p=>p.brand)));
+  const dl=(id,values)=>{const el=document.getElementById(id);if(el)el.innerHTML=values.map(v=>`<option value="${escHtml(v)}">`).join('');};
+  dl('print-owner-datalist',uniq([...PRINT_OWNERS,...printList.map(p=>p.owner)]));
+  dl('print-house-datalist',uniq(printList.map(p=>p.printHouse)));
+  dl('print-base-datalist',uniq(customers.map(c=>c.article)));
+}
+function setPrintGroupBy(v){printGroupBy=v;try{localStorage.setItem('dt_printGroupBy',v);}catch(e){}renderPrints();}
+function togglePrintGroup(i){const k=printGroupKeys[i];if(k===undefined)return;const id=printGroupBy+'|'+k;printGroupExpanded.has(id)?printGroupExpanded.delete(id):printGroupExpanded.add(id);renderPrints();}
+function setAllPrintGroups(open){printGroupKeys.forEach(k=>{const id=printGroupBy+'|'+k;open?printGroupExpanded.add(id):printGroupExpanded.delete(id);});renderPrints();}
+
+function filteredPrints(){
+  const q=(document.getElementById('print-search')||{value:''}).value.toLowerCase().trim();
+  const terms=q?q.split(/\s+/):[];
+  const ownerVal=(document.getElementById('print-owner-filter')||{value:''}).value;
+  const brandVal=(document.getElementById('print-brand-filter')||{value:''}).value;
+  const list=printList.filter(p=>{
+    if(activePrintCases.size&&!activePrintCases.has(p.caseStatus))return false;
+    if(activePrintSteps.size&&![...activePrintSteps].some(k=>p.steps[k].state==='todo'))return false;
+    if(activePrintWaits.size&&!activePrintWaits.has(p.waitingOn))return false;
+    if(activePrintFlags.has('nextOverdue')&&!isPrintNextOverdue(p))return false;
+    if(activePrintFlags.has('stalled')&&!isPrintStalled(p))return false;
+    if(ownerVal&&String(p.owner||'').trim()!==ownerVal)return false;
+    if(brandVal&&String(p.brand||'').trim()!==brandVal)return false;
+    if(terms.length){
+      const hay=[p.brand,p.printName,p.baseArticle,p.owner,p.printHouse,p.season,p.nextStep,p.note].join(' ').toLowerCase();
+      if(!terms.every(t=>hay.includes(t)))return false;
+    }
+    return true;
+  });
+  list.sort((a,b)=>{
+    const oa=isPrintNextOverdue(a)?0:1,ob=isPrintNextOverdue(b)?0:1;if(oa!==ob)return oa-ob;
+    const na=a.nextDate||'9999',nb=b.nextDate||'9999';if(na!==nb)return na<nb?-1:1;
+    const da=a.dueDate||'9999',db=b.dueDate||'9999';if(da!==db)return da<db?-1:1;
+    const pa=PRIORITIES.indexOf(a.priority),pb=PRIORITIES.indexOf(b.priority);
+    return (pa===-1?9:pa)-(pb===-1?9:pb);
+  });
+  return {list,searching:terms.length>0};
+}
+function printStepChipsHTML(p,clickable){
+  const prog=printProgress(p);
+  const chips=PRINT_STEPS.map(([k,l])=>{
+    const st=p.steps[k].state;
+    const icon=st==='done'?'✓':(st==='na'?'–':'○');
+    const canClick=clickable&&st!=='na';
+    return `<span class="step-chip ${st}${canClick?' clickable':''}"${canClick?` onclick="event.stopPropagation();quickTogglePrintStep('${p.id}','${k}')" title="點一下切換完成／未完成"`:''}>${icon} ${l}</span>`;
+  }).join('');
+  const allDone=prog.total>0&&prog.done===prog.total;
+  return `<div class="step-row">${chips}<span class="step-progress${allDone?' all-done':''}">${allDone?'步驟完成':prog.done+'/'+prog.total}</span></div>`;
+}
+function printCardHTML(p){
+  const[abg,atxt]=avatarColors(p.brand),isOpen=openPrintCardId===p.id;
+  const editable=canEditPrint(p);
+  const nextOver=isPrintNextOverdue(p),stalled=isPrintStalled(p),dueOver=isPrintDueOverdue(p);
+  const latestLog=p.logs.length?p.logs[0]:null;
+  const cc=PRINT_CASE_COLORS[p.caseStatus];
+  const pc=p.priority?priorityColor(p.priority):null;
+  const wc=PRINT_WAIT_COLORS[p.waitingOn];
+  const sub=[escHtml(p.brand),p.baseArticle?'底布 '+escHtml(p.baseArticle):'',p.owner?'業務 '+escHtml(p.owner):''].filter(Boolean).join(' · ');
+  const nextHTML=(p.nextStep||p.nextDate)?`<div class="print-next${nextOver?' overdue':''}">${nextOver?'<i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px"></i> ':''}下一步：${escHtml(p.nextStep||'—')}${p.nextDate?`（${p.nextDate.slice(5)}）`:''}</div>`:'';
+  const lockIcon=editable?'':'<i class="ti ti-lock" style="font-size:13px;color:var(--color-text-tertiary);margin-left:4px" title="唯讀"></i>';
+  return `<div class="customer-card${nextOver?' next-overdue':''}" id="pcard-${p.id}"><div class="card-header" onclick="togglePrintCard('${p.id}')"><div class="avatar" style="background:${abg};color:${atxt}">${escHtml((p.brand||'—').slice(0,2))}</div><div class="card-meta"><div class="card-name">${escHtml(p.printName||'—')}</div><div class="card-company">${sub}</div>${printStepChipsHTML(p,editable&&p.caseStatus==='進行中')}${nextHTML}${latestLog?`<div class="card-log-preview"><i class="ti ti-message" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>${latestLog.date} ${escHtml(latestLog.text)}</div>`:''}</div><div class="card-right"><div class="card-badges">${p.caseStatus!=='進行中'?`<span class="badge" style="background:${cc.bg};color:${cc.fg}">${p.caseStatus}</span>`:''}${wc?`<span class="badge" style="background:${wc.bg};color:${wc.fg}">等${p.waitingOn}</span>`:''}${pc?`<span class="badge" style="background:${pc.bg};color:${pc.fg}">${p.priority}</span>`:''}${stalled?`<span class="flag-badge">停滯 ${daysSince(p.updatedAt)} 天</span>`:''}</div><span class="card-last${dueOver?' overdue-text':''}" title="客戶交期">${p.dueDate?'交期 '+p.dueDate:''}</span></div>${lockIcon}<i class="ti ti-chevron-${isOpen?'up':'down'}" style="font-size:16px;color:var(--color-text-tertiary);margin-left:4px"></i></div><div class="card-body${isOpen?' open':''}" id="pbody-${p.id}">${isOpen?printBodyHTML(p):''}</div></div>`;
+}
+function printBodyHTML(p){
+  const editable=canEditPrint(p);
+  const canLog=!isReadOnly(currentUserEmail);
+  const linkHTML=p.artworkLink&&/^https?:\/\//i.test(p.artworkLink)?`<a href="${escHtml(p.artworkLink)}" target="_blank" rel="noopener">開啟圖稿</a>`:(p.artworkLink?escHtml(p.artworkLink):'');
+  const info=[['負責業務',p.owner],['底布',p.baseArticle],['印花廠',p.printHouse],['Season',p.season],['打樣輪次',p.strikeRound!==''&&p.strikeRound!=null?'第 '+p.strikeRound+' 次':''],['客戶交期',p.dueDate],['建立者',displayName(p.createdBy)]].filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${escHtml(v)}</strong></div>`).join('');
+  const linkItem=linkHTML?`<div class="info-item">圖稿：<strong>${linkHTML}</strong></div>`:'';
+  const noteHTML=p.note?`<div class="info-item-block">備註：<strong>${escHtml(p.note).replace(/\n/g,'<br>')}</strong></div>`:'';
+  const stepRows=PRINT_STEPS.map(([k,l])=>{
+    const s=p.steps[k];
+    const opts=[['todo','未完成'],['done','完成'],['na','不需要']];
+    const seg=opts.map(([v,lab])=>{const sel=s.state===v?' sel-'+v:'';return editable?`<button class="${sel.trim()}" onclick="setPrintStep('${p.id}','${k}','${v}')">${lab}</button>`:`<span class="${sel.trim()}">${lab}</span>`;}).join('');
+    return `<div class="step-edit-row"><span class="step-name">${l}</span><span class="seg">${seg}</span>${s.state==='done'&&s.date?`<span class="step-date">完成於 ${s.date}</span>`:''}</div>`;
+  }).join('');
+  const waitBtns=['',...PRINT_WAIT_OPTIONS].map(w=>{const sel=(p.waitingOn||'')===w;const c=PRINT_WAIT_COLORS[w];const style=sel&&c?`background:${c.bg};color:${c.fg};border-color:${c.border}`:'';const lab=w?'等'+w:'無';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setPrintField('${p.id}','waitingOn','${w}')">${lab}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${lab}</span>`;}).join('');
+  const caseBtns=PRINT_CASE_STATUSES.map(s=>{const sel=p.caseStatus===s;const c=PRINT_CASE_COLORS[s];const style=sel?`background:${c.bg};color:${c.fg};border-color:${c.border}`:'';return editable?`<button class="status-btn${sel?' sel':''}" style="${style}" onclick="setPrintField('${p.id}','caseStatus','${s}')">${s}</button>`:`<span class="status-btn${sel?' sel':''}" style="${style}${sel?'':';opacity:.5'}">${s}</span>`;}).join('');
+  const nextEdit=editable?`<div class="next-edit-row"><input type="text" id="pnext-${p.id}" value="${escHtml(p.nextStep||'')}" placeholder="下一步要做什麼"><input type="date" id="pnextdate-${p.id}" value="${p.nextDate||''}"><button class="btn-log" onclick="savePrintNext('${p.id}')">更新</button></div>`:`<div style="font-size:13px;margin-bottom:6px">${escHtml(p.nextStep||'—')}${p.nextDate?'（'+p.nextDate+'）':''}</div>`;
+  const logsExpanded=expandedPrintLogIds.has(p.id);
+  const logsToRender=logsExpanded?p.logs:p.logs.slice(0,LOG_PREVIEW_COUNT);
+  const logsHTML=logsToRender.map(l=>`<div class="log-entry"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge"><span>${l.date}</span></span><span class="log-text-display">${escHtml(l.text).replace(/\n/g,'<br>')}</span>${canLog?`<div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${p.id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deletePrintLog('${p.id}','${l.id}')"><i class="ti ti-trash"></i></button></div>`:''}</div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${escHtml(l.text)}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="savePrintLogEdit('${p.id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`).join('');
+  const logsToggle=p.logs.length>LOG_PREVIEW_COUNT?`<button class="btn-log-toggle" onclick="togglePrintLogsExpand('${p.id}')">${logsExpanded?'收合紀錄':'展開全部 '+p.logs.length+' 筆紀錄'}</button>`:'';
+  const canCreate=!isReadOnly(currentUserEmail);
+  const dupBtn=canCreate?`<button class="btn-edit-c" onclick="duplicatePrint('${p.id}')"><i class="ti ti-copy"></i> 複製</button>`:'';
+  const footer=editable?`<div class="card-footer">${dupBtn}<button class="btn-edit-c" onclick="openPrintModal('${p.id}')"><i class="ti ti-edit"></i> 編輯</button><button class="btn-del-c" onclick="deletePrint('${p.id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:space-between"><span style="color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯基本資料${canLog?'，可新增紀錄':''}</span>${dupBtn}</div>`;
+  return `${info||linkItem?`<div class="info-grid">${info}${linkItem}</div>`:''}${noteHTML}<div class="section-label">步驟</div>${stepRows}<div class="section-label">下一步</div>${nextEdit}<div class="section-label">等待對象</div><div class="status-grid">${waitBtns}</div><div class="section-label">案子狀態</div><div class="status-grid">${caseBtns}</div><div class="divider"></div><div class="section-label" style="margin-top:0">進度紀錄</div>${p.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggle}${canLog?`<div class="add-log-row"><input class="log-input" id="plog-inp-${p.id}" type="text" placeholder="記錄這週的進度…" onkeydown="if(event.key==='Enter')addPrintLog('${p.id}')"><button class="btn-log" onclick="addPrintLog('${p.id}')">新增</button></div>`:''}${footer}`;
+}
+function buildPrintGroupedHTML(list,forceOpen){
+  const groups=new Map();
+  list.forEach(p=>{
+    const raw=String(p[printGroupBy]||'').replace(/\s+/g,' ').trim();
+    const key=isPlaceholderValue(raw)?'':raw.toLowerCase();
+    if(!groups.has(key))groups.set(key,{labels:{},items:[]});
+    const g=groups.get(key);g.items.push(p);if(key)g.labels[raw]=(g.labels[raw]||0)+1;
+  });
+  const ordered=[...groups.entries()].map(([k,g])=>[k,{...g,label:k?Object.entries(g.labels).sort((a,b)=>b[1]-a[1])[0][0]:''}]).sort((a,b)=>{
+    if(a[0]==='')return 1;if(b[0]==='')return -1;
+    if(b[1].items.length!==a[1].items.length)return b[1].items.length-a[1].items.length;
+    return a[1].label.localeCompare(b[1].label,'zh-Hant');
+  });
+  printGroupKeys=ordered.map(([k])=>k);
+  return ordered.map(([key,g],i)=>{
+    const open=forceOpen||printGroupExpanded.has(printGroupBy+'|'+key);
+    const nextOver=g.items.filter(isPrintNextOverdue).length,stalled=g.items.filter(isPrintStalled).length;
+    const waits=PRINT_WAIT_OPTIONS.map(w=>[w,g.items.filter(p=>p.waitingOn===w).length]).filter(([,n])=>n).map(([w,n])=>`等${w} ${n}`).join('・');
+    return `<div class="group-block${open?' open':''}${key===''?' ungrouped':''}"><div class="group-header" onclick="togglePrintGroup(${i})"><i class="ti ti-chevron-${open?'down':'right'}" style="font-size:15px;color:#3C3489"></i><span class="group-title">${key===''?'未填寫':escHtml(g.label)}</span><span class="group-count">${g.items.length} 項</span><span class="group-meta">${waits}</span><span class="group-spacer"></span>${nextOver?`<span class="group-overdue"><i class="ti ti-alert-triangle" style="font-size:12px;vertical-align:-1px"></i> 下一步逾期 ${nextOver}</span>`:''}${stalled?`<span class="flag-badge">停滯 ${stalled}</span>`:''}</div>${open?`<div class="group-body">${g.items.map(printCardHTML).join('')}</div>`:''}</div>`;
+  }).join('');
+}
+function renderPrints(){
+  const el=document.getElementById('print-list-el');if(!el)return;
+  buildPrintSelectOptions();
+  const {list,searching}=filteredPrints();
+  const gb=document.getElementById('print-group-by');if(gb&&gb.value!==printGroupBy)gb.value=printGroupBy;
+  const gt=document.getElementById('print-group-tools');if(gt)gt.style.display=(printGroupBy!=='none'&&!searching)?'':'none';
+  const n=f=>list.filter(f).length;
+  const stat=(num,label,kind,val)=>{const on=kind&&({wait:activePrintWaits,flag:activePrintFlags}[kind]).has(val);return `<div class="stat-card${on?' active':''}"${kind?` onclick="togglePrintSet('${kind}','${val}')"`:''}><div class="stat-num">${num}</div><div class="stat-label">${label}</div></div>`;};
+  document.getElementById('print-stats-row').innerHTML=stat(list.length,'項目數')+stat(n(isPrintNextOverdue),'下一步逾期','flag','nextOverdue')+stat(n(isPrintStalled),'停滯','flag','stalled')+PRINT_WAIT_OPTIONS.map(w=>stat(n(p=>p.waitingOn===w),'等'+w,'wait',w)).join('');
+  if(!list.length){el.innerHTML=`<div class="empty"><i class="ti ti-clipboard-off" style="font-size:32px;display:block;margin-bottom:8px"></i>${printList.length?'沒有符合的印花項目':'還沒有印花項目，按右上角「新增印花」開始'}</div>`;return;}
+  el.innerHTML=printGroupBy==='none'?list.map(printCardHTML).join(''):buildPrintGroupedHTML(list,searching);
+}
+function togglePrintCard(id){openPrintCardId=openPrintCardId===id?null:id;renderPrints();}
+function togglePrintLogsExpand(id){expandedPrintLogIds.has(id)?expandedPrintLogIds.delete(id):expandedPrintLogIds.add(id);renderPrints();}
+function printUpdate(id,data,okMsg){
+  return printRef.doc(id).update(data).then(()=>{if(okMsg)showToast(okMsg);}).catch(err=>showToast('✗ 更新失敗：'+err.message));
+}
+function guardPrintEdit(id){
+  const p=printList.find(x=>x.id===id);
+  if(!p)return null;
+  if(!canEditPrint(p)){showToast('✗ 只有建立者可以修改這筆資料');return null;}
+  return p;
+}
+function setPrintStep(id,k,state){
+  const p=guardPrintEdit(id);if(!p)return;
+  const steps=JSON.parse(JSON.stringify(p.steps));
+  steps[k]={state,date:state==='done'?(p.steps[k].state==='done'&&p.steps[k].date?p.steps[k].date:TODAY):''};
+  printUpdate(id,{steps,updatedAt:TODAY});
+}
+function quickTogglePrintStep(id,k){
+  const p=printList.find(x=>x.id===id);if(!p)return;
+  setPrintStep(id,k,p.steps[k].state==='done'?'todo':'done');
+}
+function setPrintField(id,field,value){
+  const p=guardPrintEdit(id);if(!p)return;
+  printUpdate(id,{[field]:value,updatedAt:TODAY});
+}
+function savePrintNext(id){
+  const p=guardPrintEdit(id);if(!p)return;
+  printUpdate(id,{nextStep:document.getElementById('pnext-'+id).value.trim(),nextDate:document.getElementById('pnextdate-'+id).value,updatedAt:TODAY},'✓ 已更新下一步');
+}
+function addPrintLog(id){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增紀錄');return;}
+  const inp=document.getElementById('plog-inp-'+id);const text=inp.value.trim();if(!text)return;
+  const p=printList.find(x=>x.id===id);if(!p)return;
+  inp.value='';
+  printRef.doc(id).update({logs:[{id:newLogId(),date:TODAY,text},...p.logs],updatedAt:TODAY}).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
+}
+function deletePrintLog(id,lid){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法刪除紀錄');return;}
+  const p=printList.find(x=>x.id===id);if(!p)return;
+  printRef.doc(id).update({logs:p.logs.filter(l=>l.id!==lid)}).catch(err=>showToast('✗ 刪除紀錄失敗：'+err.message));
+}
+function savePrintLogEdit(id,lid){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法編輯紀錄');return;}
+  const p=printList.find(x=>x.id===id);if(!p)return;
+  const txt=document.getElementById('log-edit-text-'+lid).value.trim();const dt=document.getElementById('log-edit-date-'+lid).value;
+  if(!txt)return;
+  printRef.doc(id).update({logs:p.logs.map(l=>l.id===lid?{...l,text:txt,date:dt||l.date}:l)}).catch(err=>showToast('✗ 更新紀錄失敗：'+err.message));
+}
+function fillPrintModalSelects(){
+  document.getElementById('p-case').innerHTML=PRINT_CASE_STATUSES.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('p-wait').innerHTML='<option value="">— 無 —</option>'+PRINT_WAIT_OPTIONS.map(w=>`<option value="${w}">等${w}</option>`).join('');
+  document.getElementById('p-steps').innerHTML=PRINT_STEPS.map(([k,l])=>`<span>${l}</span><select id="p-step-${k}"><option value="todo">未完成</option><option value="done">完成</option><option value="na">不需要</option></select>`).join('');
+}
+const PRINT_MODAL_FIELDS=[['p-brand','brand'],['p-name','printName'],['p-base','baseArticle'],['p-owner','owner'],['p-next','nextStep'],['p-nextdate','nextDate'],['p-due','dueDate'],['p-priority','priority'],['p-house','printHouse'],['p-season','season'],['p-round','strikeRound'],['p-link','artworkLink'],['p-note','note']];
+function openPrintModal(id=null,copyFrom=null){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');return;}
+  buildPrintSelectOptions();
+  fillPrintModalSelects();
+  editingPrintId=id;
+  const src=id?printList.find(x=>x.id===id):copyFrom;
+  if(id&&src&&!canEditPrint(src)){showToast('✗ 只有建立者可以編輯這筆資料');editingPrintId=null;return;}
+  PRINT_MODAL_FIELDS.forEach(([f,k])=>{document.getElementById(f).value=src&&src[k]!=null?src[k]:'';});
+  document.getElementById('p-case').value=id&&src?src.caseStatus:'進行中';
+  document.getElementById('p-wait').value=id&&src?(src.waitingOn||''):'';
+  PRINT_STEPS.forEach(([k])=>{document.getElementById('p-step-'+k).value=id&&src?src.steps[k].state:'todo';});
+  if(copyFrom){['p-name','p-next','p-nextdate','p-round','p-link'].forEach(f=>document.getElementById(f).value='');}
+  document.getElementById('print-modal-title').textContent=id?'編輯印花':(copyFrom?'新增印花（已複製品牌、底布、業務等，請填花型名稱）':'新增印花');
+  document.getElementById('print-modal-bg').style.display='flex';
+  setTimeout(()=>document.getElementById(copyFrom?'p-name':'p-brand').focus(),50);
+}
+function closePrintModal(){document.getElementById('print-modal-bg').style.display='none';editingPrintId=null;}
+function duplicatePrint(id){const p=printList.find(x=>x.id===id);if(p)openPrintModal(null,p);}
+function savePrint(){
+  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closePrintModal();return;}
+  const brand=document.getElementById('p-brand').value.trim();
+  const printName=document.getElementById('p-name').value.trim();
+  const owner=document.getElementById('p-owner').value.trim();
+  if(!brand){document.getElementById('p-brand').focus();showToast('請填寫品牌');return;}
+  if(!printName){document.getElementById('p-name').focus();showToast('請填寫花型名稱／編號');return;}
+  if(!owner){document.getElementById('p-owner').focus();showToast('請填寫負責業務');return;}
+  const existing=editingPrintId?printList.find(x=>x.id===editingPrintId):null;
+  if(editingPrintId&&(!existing||!canEditPrint(existing))){showToast('✗ 只有建立者可以編輯這筆資料');closePrintModal();return;}
+  const data={};
+  PRINT_MODAL_FIELDS.forEach(([f,k])=>{data[k]=document.getElementById(f).value.trim();});
+  data.strikeRound=data.strikeRound===''?'':Math.max(0,parseInt(data.strikeRound,10)||0);
+  data.caseStatus=document.getElementById('p-case').value;
+  data.waitingOn=document.getElementById('p-wait').value;
+  data.steps={};
+  PRINT_STEPS.forEach(([k])=>{const st=document.getElementById('p-step-'+k).value;const prev=existing&&existing.steps[k];data.steps[k]={state:st,date:st==='done'?(prev&&prev.state==='done'&&prev.date?prev.date:TODAY):''};});
+  data.updatedAt=TODAY;
+  if(existing){
+    printRef.doc(editingPrintId).update(data).catch(err=>showToast('✗ 更新失敗：'+err.message));
+  }else{
+    printRef.add({...data,createdBy:currentUserEmail,createdAt:TODAY,logs:[]}).catch(err=>showToast('✗ 新增失敗：'+err.message));
+  }
+  closePrintModal();
+}
+function deletePrint(id){
+  const p=guardPrintEdit(id);if(!p)return;
+  if(!confirm(`確定刪除「${p.printName||''}」？此動作無法復原。`))return;
+  if(openPrintCardId===id)openPrintCardId=null;
+  printRef.doc(id).delete().catch(err=>showToast('✗ 刪除失敗：'+err.message));
+}
+function attachPrintListener(){
+  if(printRef)return;
+  const el=document.getElementById('print-list-el');if(el)el.innerHTML='<div class="empty">載入中…</div>';
+  printRef=firebase.firestore().collection('print_items');
+  unsubscribePrints=printRef.onSnapshot(snapshot=>{
+    printList=snapshot.docs.map(doc=>normalizePrint({id:doc.id,...doc.data()}));
+    renderPrints();
+  },err=>{
+    const el2=document.getElementById('print-list-el');
+    if(el2)el2.innerHTML='<div class="empty">無法讀取印花資料（'+escHtml(err.message)+'）</div>';
+  });
+}
+function detachPrintListener(){
+  if(unsubscribePrints){unsubscribePrints();unsubscribePrints=null;}
+  printRef=null;printList=[];
+}
+
 buildFilters();
 buildFeedbackFilters();
+buildPrintFilters();
+syncPrintChips();
 const DEFAULT_HIDDEN_STATUSES=['完成','暫緩','取消'];
 STATUSES.forEach(s=>{if(!DEFAULT_HIDDEN_STATUSES.includes(s))activeStatuses.add(s);});
 activeFeedbackStatuses.add('today');
@@ -1503,7 +1915,7 @@ activeFeedbackStatuses.add('需追蹤');
 syncChips();
 syncFeedbackChips();
 buildCalcTab();
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closePrintModal();}});
 
 function setupBackdropClose(bgId,closeFn){
   const bg=document.getElementById(bgId);
@@ -1515,6 +1927,7 @@ function setupBackdropClose(bgId,closeFn){
 setupBackdropClose('modal-bg',closeModal);
 setupBackdropClose('feedback-modal-bg',closeFeedbackModal);
 setupBackdropClose('compare-modal-bg',closeCompareModal);
+setupBackdropClose('print-modal-bg',closePrintModal);
 
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
@@ -1595,12 +2008,14 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       showScreen('login');
       detachFirestoreListener();
       detachFeedbackListener();
+      detachPrintListener();
     } else if(!ALLOWED_EMAILS.includes(user.email)){
       currentUserEmail=null;
       document.getElementById('unauthorized-email').textContent=user.email;
       showScreen('unauthorized');
       detachFirestoreListener();
       detachFeedbackListener();
+      detachPrintListener();
     } else {
       currentUserEmail=user.email;
       document.getElementById('user-email-display').textContent=displayName(user.email);
@@ -1608,6 +2023,8 @@ if(firebaseConfig.apiKey==='YOUR_API_KEY'){
       updateToolbarVisibility();
       attachFirestoreListener();
       attachFeedbackListener();
+      attachPrintListener();
+      renderPrints();
     }
   });
 }
