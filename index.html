@@ -401,8 +401,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
       <option value="none">不分組</option>
       <option value="family">依 Family</option>
       <option value="brand">依品牌</option>
-      <option value="gauge">依針數</option>
-      <option value="season">依 Season</option>
+      <option value="knitter">依織廠</option>
+      <option value="dyehouse">依染廠</option>
     </select>
     <span id="group-tools" style="display:none"><span class="group-tools" onclick="setAllGroups(true)">全部展開</span><span class="group-tools" onclick="setAllGroups(false)">全部收合</span></span>
   </div>
@@ -906,7 +906,7 @@ const GROUP_PLACEHOLDERS=['','n/a','na','tba','-','—','none'];
 function isPlaceholderValue(v){return GROUP_PLACEHOLDERS.includes(String(v||'').trim().toLowerCase());}
 function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 let groupBy='none';
-try{const g=localStorage.getItem('dt_groupBy');if(['none','family','brand','gauge','season'].includes(g))groupBy=g;}catch(e){}
+try{const g=localStorage.getItem('dt_groupBy');if(['none','family','brand','knitter','dyehouse'].includes(g))groupBy=g;}catch(e){}
 const groupExpanded=new Set();
 let renderedGroupKeys=[];
 // returns {key,label}; key '' means 未分組
