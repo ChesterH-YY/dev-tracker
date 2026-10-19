@@ -102,6 +102,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .chip-select{display:none !important;}
 .field input.field-error{border-color:#B3261E;box-shadow:0 0 0 1px #B3261E;}
 .field-err{font-size:12px;color:#B3261E;margin-top:4px;}
+.field input.combo-new{margin-top:6px;}
 .mchips{display:flex;flex-wrap:wrap;gap:6px;}
 .mchip{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);font-size:12.5px;color:var(--color-text-secondary);cursor:pointer;font-family:inherit;line-height:1.3;}
 .mchip:hover{border-color:#3C3489;}
@@ -590,8 +591,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
       <div class="mf-sec">布料規格 <span class="mf-hint">織造 → 染整 → 成品</span></div>
       <div class="mf-grid c5">
         <div class="field"><label>Gauge 針數</label><input id="f-gauge" type="text" placeholder="例：32G"></div>
-        <div class="field"><label>Knitter 織廠</label><input id="f-knitter" type="text" placeholder="織廠"></div>
-        <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠"></div>
+        <div class="field"><label>Knitter 織廠</label><select id="f-knitter-sel" onchange="onComboChange('f-knitter')"></select><input id="f-knitter" type="text" class="combo-new" placeholder="輸入新的織廠名稱" style="display:none"></div>
+        <div class="field"><label>染廠</label><select id="f-dyehouse-sel" onchange="onComboChange('f-dyehouse')"></select><input id="f-dyehouse" type="text" class="combo-new" placeholder="輸入新的染廠名稱" style="display:none"></div>
         <div class="field"><label>CW 可裁幅寬</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
         <div class="field"><label>GSM 克重</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
       </div>
@@ -1115,6 +1116,29 @@ function pickSelectChip(selectId,v){
   renderSelectChips(selectId);
 }
 function renderModalChips(ids){ids.forEach(renderSelectChips);}
+/* 織廠／染廠：從既有紀錄產生下拉選單，避免同一家廠寫成不同名字；
+   真正存檔的值仍在原本的 input（#f-knitter / #f-dyehouse），選「新增其他」時才顯示 */
+const COMBO_FIELDS={'f-knitter':'knitter','f-dyehouse':'dyehouse'};
+function comboOptions(key){
+  const m=new Map();
+  customers.forEach(c=>{const v=String(c[key]==null?'':c[key]).trim();if(v&&!isPlaceholderValue(v))m.set(v,(m.get(v)||0)+1);});
+  return [...m.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'zh-Hant')).map(([v])=>v);
+}
+function syncCombo(id){
+  const inp=document.getElementById(id),sel=document.getElementById(id+'-sel');if(!inp||!sel)return;
+  const vals=comboOptions(COMBO_FIELDS[id]);
+  const cur=inp.value.trim();
+  if(cur&&!vals.includes(cur))vals.unshift(cur);
+  sel.innerHTML='<option value="">— 未設定 —</option>'+vals.map(v=>`<option value="${escHtml(v)}">${escHtml(v.replace(/\n/g,' / '))}</option>`).join('')+'<option value="__new__">＋ 新增其他…</option>';
+  sel.value=cur;
+  inp.value=cur;inp.style.display='none';
+}
+function onComboChange(id){
+  const inp=document.getElementById(id),sel=document.getElementById(id+'-sel');
+  if(sel.value==='__new__'){inp.value='';inp.style.display='';inp.focus();}
+  else{inp.value=sel.value;inp.style.display='none';}
+}
+function syncAllCombos(){Object.keys(COMBO_FIELDS).forEach(syncCombo);}
 // 客指開發一定要有 Developer（品牌端窗口）：標籤加 *、存檔時檢查
 const DEVELOPER_REQUIRED_TYPE='客指開發';
 function updateDeveloperRequired(){
@@ -1144,6 +1168,7 @@ function openModal(id=null){
     document.getElementById('f-priority').value='';
   }
   renderModalChips(['f-status','f-priority']);
+  syncAllCombos();
   document.getElementById('f-developer').classList.remove('field-error');document.getElementById('f-developer-err').style.display='none';
   updateDeveloperRequired();
   const mb=document.querySelector('#modal-bg .modal-body');if(mb)mb.scrollTop=0;
@@ -1159,6 +1184,7 @@ function duplicateCustomer(id){
   const specKeys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge'];
   specFields.forEach((f,i)=>{document.getElementById(f).value=c[specKeys[i]]||'';});
   setYarnEditor(c.yarnRows,c.yarnNote);
+  syncAllCombos();
   updateDeveloperRequired();
   document.getElementById('modal-title').textContent='新增項目（已複製規格，請確認 Article# 等欄位）';
 }
