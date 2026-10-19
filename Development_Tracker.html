@@ -585,6 +585,15 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
       <div class="mf-sec">開發需求</div>
       <div class="field"><label>Request 需求內容</label><textarea id="f-request" rows="2" placeholder="客戶需求、目標規格、參考樣等"></textarea></div>
 
+      <div class="mf-sec">布料規格 <span class="mf-hint">織造 → 染整 → 成品</span></div>
+      <div class="mf-grid c5">
+        <div class="field"><label>Gauge 針數</label><input id="f-gauge" type="text" placeholder="例：32G"></div>
+        <div class="field"><label>Knitter 織廠</label><input id="f-knitter" type="text" placeholder="織廠"></div>
+        <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠"></div>
+        <div class="field"><label>CW 可裁幅寬</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
+        <div class="field"><label>GSM 克重</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
+      </div>
+
       <div class="mf-sec">紗支</div>
       <div class="field">
         <table class="yarn-table">
@@ -597,14 +606,6 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
       </div>
       <div class="field"><label>紗線備註</label><textarea id="f-yarn-note" rows="2" placeholder="色號、缸號、GB 說明、測試結果等（選填）"></textarea></div>
 
-      <div class="mf-sec">布料規格 <span class="mf-hint">織造 → 染整 → 成品</span></div>
-      <div class="mf-grid c5">
-        <div class="field"><label>Gauge 針數</label><input id="f-gauge" type="text" placeholder="例：32G"></div>
-        <div class="field"><label>Knitter 織廠</label><input id="f-knitter" type="text" placeholder="織廠"></div>
-        <div class="field"><label>染廠</label><input id="f-dyehouse" type="text" placeholder="染廠"></div>
-        <div class="field"><label>CW 可裁幅寬</label><input id="f-cw" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
-        <div class="field"><label>GSM 克重</label><input id="f-gsm" type="number" step="any" inputmode="decimal" placeholder="純數字"></div>
-      </div>
     </div>
     <div class="modal-btns modal-foot">
       <button class="btn-cancel" onclick="closeModal()">取消</button>
