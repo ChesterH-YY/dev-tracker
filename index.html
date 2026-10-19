@@ -100,6 +100,8 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .mf-grid.c5{grid-template-columns:repeat(5,minmax(0,1fr));}
 .mf-grid.next-grid{grid-template-columns:minmax(0,3fr) minmax(0,1fr);}
 .chip-select{display:none !important;}
+.field input.field-error{border-color:#B3261E;box-shadow:0 0 0 1px #B3261E;}
+.field-err{font-size:12px;color:#B3261E;margin-top:4px;}
 .mchips{display:flex;flex-wrap:wrap;gap:6px;}
 .mchip{padding:5px 12px;border-radius:99px;border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);font-size:12.5px;color:var(--color-text-secondary);cursor:pointer;font-family:inherit;line-height:1.3;}
 .mchip:hover{border-color:#3C3489;}
@@ -563,7 +565,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
         <div class="field"><label>Family 系列</label><input id="f-family" type="text" list="family-datalist" placeholder="可從清單選或直接輸入"><datalist id="family-datalist"></datalist></div>
         <div class="field"><label>Season 季節</label><input id="f-season" type="text" placeholder="例：SS27"></div>
         <div class="field"><label>開發類型</label>
-          <select id="f-devtype">
+          <select id="f-devtype" onchange="updateDeveloperRequired()">
             <option value="">— 未設定 —</option>
             <option value="客指開發">客指開發</option>
             <option value="自主開發">自主開發</option>
@@ -571,7 +573,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
             <option value="Sourcing">Sourcing</option>
           </select>
         </div>
-        <div class="field"><label>Developer 開發人員</label><input id="f-developer" type="text" placeholder="開發人員"></div>
+        <div class="field"><label id="f-developer-label">Developer 開發人員</label><input id="f-developer" type="text" placeholder="開發人員" oninput="this.classList.remove('field-error');document.getElementById('f-developer-err').style.display='none'"><div class="field-err" id="f-developer-err" style="display:none">客指開發請填寫 Developer（品牌端的開發窗口）</div></div>
       </div>
 
       <div class="mf-sec">進度與時程</div>
@@ -1113,6 +1115,14 @@ function pickSelectChip(selectId,v){
   renderSelectChips(selectId);
 }
 function renderModalChips(ids){ids.forEach(renderSelectChips);}
+// 客指開發一定要有 Developer（品牌端窗口）：標籤加 *、存檔時檢查
+const DEVELOPER_REQUIRED_TYPE='客指開發';
+function updateDeveloperRequired(){
+  const req=document.getElementById('f-devtype').value===DEVELOPER_REQUIRED_TYPE;
+  const lab=document.getElementById('f-developer-label');if(lab)lab.textContent='Developer 開發人員'+(req?' *':'');
+  const inp=document.getElementById('f-developer');if(inp)inp.placeholder=req?'客指開發必填：品牌端開發窗口':'開發人員';
+  if(!req){inp&&inp.classList.remove('field-error');const e=document.getElementById('f-developer-err');if(e)e.style.display='none';}
+}
 
 function openModal(id=null){
   editingCustomerId=id;
@@ -1134,6 +1144,8 @@ function openModal(id=null){
     document.getElementById('f-priority').value='';
   }
   renderModalChips(['f-status','f-priority']);
+  document.getElementById('f-developer').classList.remove('field-error');document.getElementById('f-developer-err').style.display='none';
+  updateDeveloperRequired();
   const mb=document.querySelector('#modal-bg .modal-body');if(mb)mb.scrollTop=0;
   document.getElementById('modal-bg').style.display='flex';setTimeout(()=>document.getElementById('f-brand').focus(),50);
 }
@@ -1147,11 +1159,19 @@ function duplicateCustomer(id){
   const specKeys=['brand','devType','developer','request','family','season','article','cw','gsm','knitter','dyehouse','gauge'];
   specFields.forEach((f,i)=>{document.getElementById(f).value=c[specKeys[i]]||'';});
   setYarnEditor(c.yarnRows,c.yarnNote);
+  updateDeveloperRequired();
   document.getElementById('modal-title').textContent='新增項目（已複製規格，請確認 Article# 等欄位）';
 }
 function saveCustomer(){
   if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closeModal();return;}
   const brand=document.getElementById('f-brand').value.trim();if(!brand){document.getElementById('f-brand').focus();return;}
+  if(document.getElementById('f-devtype').value===DEVELOPER_REQUIRED_TYPE&&!document.getElementById('f-developer').value.trim()){
+    const dev=document.getElementById('f-developer');
+    dev.classList.add('field-error');document.getElementById('f-developer-err').style.display='block';
+    if(dev.scrollIntoView)dev.scrollIntoView({block:'center'});dev.focus();
+    showToast('客指開發請填寫 Developer');
+    return;
+  }
   if(editingCustomerId){
     const existing=customers.find(x=>x.id===editingCustomerId);
     if(existing && !canEdit(existing)){showToast('✗ 你沒有權限編輯這筆資料');closeModal();return;}
