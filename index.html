@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="2026-10-20.1">
+<meta name="app-version" content="2026-10-20.2">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Development Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
@@ -713,7 +713,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 
       <div class="mf-sec">下一步</div>
       <div class="mf-grid next-grid">
-        <div class="field"><label>下一步要做什麼</label><input id="p-next" type="text" placeholder="例：寄第二輪 strike-off 給客戶"></div>
+        <div class="field"><label>下一步要做什麼</label><input id="p-next" type="text" placeholder="例：寄第二輪 Color S/O 給客戶"></div>
         <div class="field"><label>下一步日期</label><input id="p-nextdate" type="date"></div>
       </div>
 
@@ -2028,7 +2028,7 @@ function deleteFeedback(id){
    印花開發 (Print development) — 給業務助理填、業務每週追進度
    資料存在 Firestore 的 print_items，權限規則與開發項目相同
    ──────────────────────────────────────────────────────────── */
-const PRINT_STEPS=[['fabric','底布準備'],['color','打色'],['layout','Layout'],['strikeoff','Strike-off']];
+const PRINT_STEPS=[['fabric','底布準備'],['color','打色'],['layout','Layout S/O'],['strikeoff','Color S/O']];
 const PRINT_CASE_STATUSES=['進行中','已核可','暫緩','取消'];
 const PRINT_CASE_COLORS={'進行中':{bg:'#EEEDFE',fg:'#3C3489',border:'#3C3489'},'已核可':{bg:'#E3F1E6',fg:'#1F6D3A',border:'#1F6D3A'},'暫緩':{bg:'#EEEEEC',fg:'#5F5E5A',border:'#5F5E5A'},'取消':{bg:'#FAECE7',fg:'#712B13',border:'#712B13'}};
 const PRINT_WAIT_OPTIONS=['客戶','印花廠','我方'];
