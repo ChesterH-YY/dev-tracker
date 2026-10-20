@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="2026-10-19.4">
+<meta name="app-version" content="2026-10-20.1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Development Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
@@ -687,6 +687,14 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
         <div class="field"><label>底布 Article#</label><input id="p-base" type="text" list="print-base-datalist" placeholder="可從開發項目的 Article# 選"><datalist id="print-base-datalist"></datalist></div>
         <div class="field"><label>印花廠</label><input id="p-house" type="text" list="print-house-datalist" placeholder="選填"><datalist id="print-house-datalist"></datalist></div>
         <div class="field"><label>Season 季節</label><input id="p-season" type="text" placeholder="選填，例：SP28"></div>
+      </div>
+
+      <div class="mf-sec">圖檔與配色</div>
+      <div class="mf-grid c2">
+        <div class="field"><label>圖檔中文名</label><input id="p-artzh" type="text" placeholder="例：迷彩花卉"></div>
+        <div class="field"><label>圖檔英文名</label><input id="p-arten" type="text" placeholder="例：Floral Camo"></div>
+        <div class="field"><label>印花底色</label><input id="p-ground" type="text" placeholder="例：Black／Navy"></div>
+        <div class="field"><label>印花色</label><input id="p-colors" type="text" placeholder="例：White、Sage Green、Lilac"></div>
       </div>
 
       <div class="mf-sec">進度與時程</div>
@@ -2100,7 +2108,7 @@ function filteredPrints(){
     if(ownerVal&&String(p.owner||'').trim()!==ownerVal)return false;
     if(brandVal&&String(p.brand||'').trim()!==brandVal)return false;
     if(terms.length){
-      const hay=[p.brand,p.printName,p.baseArticle,p.owner,p.printHouse,p.season,p.nextStep,p.note].join(' ').toLowerCase();
+      const hay=[p.brand,p.printName,p.artNameZh,p.artNameEn,p.groundColor,p.printColors,p.baseArticle,p.owner,p.printHouse,p.season,p.nextStep,p.note].join(' ').toLowerCase();
       if(!terms.every(t=>hay.includes(t)))return false;
     }
     return true;
@@ -2142,7 +2150,7 @@ function printBodyHTML(p){
   const editable=canEditPrint(p);
   const canLog=!isReadOnly(currentUserEmail);
   const linkHTML=p.artworkLink&&/^https?:\/\//i.test(p.artworkLink)?`<a href="${escHtml(p.artworkLink)}" target="_blank" rel="noopener">開啟圖稿</a>`:(p.artworkLink?escHtml(p.artworkLink):'');
-  const info=[['負責業務',p.owner],['底布',p.baseArticle],['印花廠',p.printHouse],['Season',p.season],['打樣輪次',p.strikeRound!==''&&p.strikeRound!=null?'第 '+p.strikeRound+' 次':''],['客戶交期',p.dueDate],['建立者',displayName(p.createdBy)]].filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${escHtml(v)}</strong></div>`).join('');
+  const info=[['圖檔中文名',p.artNameZh],['圖檔英文名',p.artNameEn],['印花底色',p.groundColor],['印花色',p.printColors],['負責業務',p.owner],['底布',p.baseArticle],['印花廠',p.printHouse],['Season',p.season],['打樣輪次',p.strikeRound!==''&&p.strikeRound!=null?'第 '+p.strikeRound+' 次':''],['客戶交期',p.dueDate],['建立者',displayName(p.createdBy)]].filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${escHtml(v)}</strong></div>`).join('');
   const linkItem=linkHTML?`<div class="info-item">圖稿：<strong>${linkHTML}</strong></div>`:'';
   const noteHTML=p.note?`<div class="info-item-block">備註：<strong>${escHtml(p.note).replace(/\n/g,'<br>')}</strong></div>`:'';
   const stepRows=PRINT_STEPS.map(([k,l])=>{
@@ -2249,7 +2257,7 @@ function fillPrintModalSelects(){
   document.getElementById('p-wait').innerHTML='<option value="">— 無 —</option>'+PRINT_WAIT_OPTIONS.map(w=>`<option value="${w}">等${w}</option>`).join('');
   document.getElementById('p-steps').innerHTML=PRINT_STEPS.map(([k,l])=>`<div class="field"><label>${l}</label><select id="p-step-${k}"><option value="todo">未完成</option><option value="done">完成</option><option value="na">不需要</option></select></div>`).join('');
 }
-const PRINT_MODAL_FIELDS=[['p-brand','brand'],['p-name','printName'],['p-base','baseArticle'],['p-owner','owner'],['p-next','nextStep'],['p-nextdate','nextDate'],['p-due','dueDate'],['p-priority','priority'],['p-house','printHouse'],['p-season','season'],['p-round','strikeRound'],['p-link','artworkLink'],['p-note','note']];
+const PRINT_MODAL_FIELDS=[['p-brand','brand'],['p-name','printName'],['p-artzh','artNameZh'],['p-arten','artNameEn'],['p-ground','groundColor'],['p-colors','printColors'],['p-base','baseArticle'],['p-owner','owner'],['p-next','nextStep'],['p-nextdate','nextDate'],['p-due','dueDate'],['p-priority','priority'],['p-house','printHouse'],['p-season','season'],['p-round','strikeRound'],['p-link','artworkLink'],['p-note','note']];
 function openPrintModal(id=null,copyFrom=null){
   if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');return;}
   buildPrintSelectOptions();
