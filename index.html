@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="2026-10-20.2">
+<meta name="app-version" content="2026-10-21.1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Development Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
@@ -1644,7 +1644,7 @@ function updateToolbarVisibility(){
   const importBtn=document.getElementById('btn-import');if(importBtn)importBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addDevBtn=document.getElementById('btn-add-dev');if(addDevBtn)addDevBtn.style.display=(currentView==='dev'&&!ro)?'':'none';
   const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
-  const addPrintBtn=document.getElementById('btn-add-print');if(addPrintBtn)addPrintBtn.style.display=(currentView==='print'&&!ro)?'':'none';
+  const addPrintBtn=document.getElementById('btn-add-print');if(addPrintBtn)addPrintBtn.style.display=(currentView==='print'&&canWritePrint())?'':'none';
   const addYarnBtn=document.getElementById('btn-add-yarn');if(addYarnBtn)addYarnBtn.style.display=(currentView==='yarn'&&!ro)?'':'none';
   const topSearch=document.getElementById('search');if(topSearch)topSearch.style.visibility=currentView==='dev'?'':'hidden';
   const dashTab=document.getElementById('tab-dashboard');if(dashTab)dashTab.style.display=canViewDashboard(currentUserEmail)?'':'none';
@@ -2047,7 +2047,7 @@ function normalizePrint(p){
   PRINT_STEPS.forEach(([k])=>{const s=(p.steps&&p.steps[k])||{};steps[k]={state:['todo','done','na'].includes(s.state)?s.state:'todo',date:s.date||''};});
   return {...p,steps,logs:p.logs||[],caseStatus:PRINT_CASE_STATUSES.includes(p.caseStatus)?p.caseStatus:'進行中'};
 }
-function canEditPrint(p){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||p.createdBy===currentUserEmail);}
+function canEditPrint(p){return !!currentUserEmail&&!!canWritePrint()&&(ADMIN_EMAILS.includes(currentUserEmail)||p.createdBy===currentUserEmail);}
 function printProgress(p){
   const applicable=PRINT_STEPS.filter(([k])=>p.steps[k].state!=='na');
   const done=applicable.filter(([k])=>p.steps[k].state==='done').length;
@@ -2148,7 +2148,7 @@ function printCardHTML(p){
 }
 function printBodyHTML(p){
   const editable=canEditPrint(p);
-  const canLog=!isReadOnly(currentUserEmail);
+  const canLog=!!canWritePrint();
   const linkHTML=p.artworkLink&&/^https?:\/\//i.test(p.artworkLink)?`<a href="${escHtml(p.artworkLink)}" target="_blank" rel="noopener">開啟圖稿</a>`:(p.artworkLink?escHtml(p.artworkLink):'');
   const info=[['圖檔中文名',p.artNameZh],['圖檔英文名',p.artNameEn],['印花底色',p.groundColor],['印花色',p.printColors],['負責業務',p.owner],['底布',p.baseArticle],['印花廠',p.printHouse],['Season',p.season],['打樣輪次',p.strikeRound!==''&&p.strikeRound!=null?'第 '+p.strikeRound+' 次':''],['客戶交期',p.dueDate],['建立者',displayName(p.createdBy)]].filter(([,v])=>v).map(([k,v])=>`<div class="info-item">${k}：<strong>${escHtml(v)}</strong></div>`).join('');
   const linkItem=linkHTML?`<div class="info-item">圖稿：<strong>${linkHTML}</strong></div>`:'';
@@ -2166,7 +2166,7 @@ function printBodyHTML(p){
   const logsToRender=logsExpanded?p.logs:p.logs.slice(0,LOG_PREVIEW_COUNT);
   const logsHTML=logsToRender.map(l=>`<div class="log-entry"><div class="log-view" id="log-view-${l.id}"><span class="log-date-badge"><span>${l.date}</span></span><span class="log-text-display">${escHtml(l.text).replace(/\n/g,'<br>')}</span>${canLog?`<div class="log-actions"><button class="log-icon-btn" onclick="startEditLog('${p.id}','${l.id}')"><i class="ti ti-pencil"></i></button><button class="log-icon-btn del" onclick="deletePrintLog('${p.id}','${l.id}')"><i class="ti ti-trash"></i></button></div>`:''}</div><div class="log-edit-form" id="log-form-${l.id}"><textarea class="log-edit-textarea" id="log-edit-text-${l.id}" rows="3">${escHtml(l.text)}</textarea><div class="log-edit-row"><input class="log-edit-date" type="date" id="log-edit-date-${l.id}" value="${l.date}"><button class="btn-save-log" onclick="savePrintLogEdit('${p.id}','${l.id}')">儲存</button><button class="btn-cancel-log" onclick="cancelEditLog('${l.id}')">取消</button></div></div></div>`).join('');
   const logsToggle=p.logs.length>LOG_PREVIEW_COUNT?`<button class="btn-log-toggle" onclick="togglePrintLogsExpand('${p.id}')">${logsExpanded?'收合紀錄':'展開全部 '+p.logs.length+' 筆紀錄'}</button>`:'';
-  const canCreate=!isReadOnly(currentUserEmail);
+  const canCreate=!!canWritePrint();
   const dupBtn=canCreate?`<button class="btn-edit-c" onclick="duplicatePrint('${p.id}')"><i class="ti ti-copy"></i> 複製</button>`:'';
   const footer=editable?`<div class="card-footer">${dupBtn}<button class="btn-edit-c" onclick="openPrintModal('${p.id}')"><i class="ti ti-edit"></i> 編輯</button><button class="btn-del-c" onclick="deletePrint('${p.id}')"><i class="ti ti-trash"></i> 刪除</button></div>`:`<div class="card-footer" style="justify-content:space-between"><span style="color:var(--color-text-tertiary);font-size:12px"><i class="ti ti-lock" style="margin-right:4px"></i>唯讀・僅建立者可編輯基本資料${canLog?'，可新增紀錄':''}</span>${dupBtn}</div>`;
   return `${info||linkItem?`<div class="info-grid">${info}${linkItem}</div>`:''}${noteHTML}<div class="section-label">步驟</div>${stepRows}<div class="section-label">下一步</div>${nextEdit}<div class="section-label">等待對象</div><div class="status-grid">${waitBtns}</div><div class="section-label">案子狀態</div><div class="status-grid">${caseBtns}</div><div class="divider"></div><div class="section-label" style="margin-top:0">進度紀錄</div>${p.logs.length===0?'<div style="font-size:13px;color:var(--color-text-tertiary);margin-bottom:8px">尚無記錄</div>':''}${logsHTML}${logsToggle}${canLog?`<div class="add-log-row"><input class="log-input" id="plog-inp-${p.id}" type="text" placeholder="記錄這週的進度…" onkeydown="if(event.key==='Enter')addPrintLog('${p.id}')"><button class="btn-log" onclick="addPrintLog('${p.id}')">新增</button></div>`:''}${footer}`;
@@ -2234,19 +2234,19 @@ function savePrintNext(id){
   printUpdate(id,{nextStep:document.getElementById('pnext-'+id).value.trim(),nextDate:document.getElementById('pnextdate-'+id).value,updatedAt:TODAY},'✓ 已更新下一步');
 }
 function addPrintLog(id){
-  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增紀錄');return;}
+  if(!canWritePrint()){showToast('✗ 唯讀帳號無法新增紀錄');return;}
   const inp=document.getElementById('plog-inp-'+id);const text=inp.value.trim();if(!text)return;
   const p=printList.find(x=>x.id===id);if(!p)return;
   inp.value='';
   printRef.doc(id).update({logs:[{id:newLogId(),date:TODAY,text},...p.logs],updatedAt:TODAY}).catch(err=>showToast('✗ 新增紀錄失敗：'+err.message));
 }
 function deletePrintLog(id,lid){
-  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法刪除紀錄');return;}
+  if(!canWritePrint()){showToast('✗ 唯讀帳號無法刪除紀錄');return;}
   const p=printList.find(x=>x.id===id);if(!p)return;
   printRef.doc(id).update({logs:p.logs.filter(l=>l.id!==lid)}).catch(err=>showToast('✗ 刪除紀錄失敗：'+err.message));
 }
 function savePrintLogEdit(id,lid){
-  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法編輯紀錄');return;}
+  if(!canWritePrint()){showToast('✗ 唯讀帳號無法編輯紀錄');return;}
   const p=printList.find(x=>x.id===id);if(!p)return;
   const txt=document.getElementById('log-edit-text-'+lid).value.trim();const dt=document.getElementById('log-edit-date-'+lid).value;
   if(!txt)return;
@@ -2259,7 +2259,7 @@ function fillPrintModalSelects(){
 }
 const PRINT_MODAL_FIELDS=[['p-brand','brand'],['p-name','printName'],['p-artzh','artNameZh'],['p-arten','artNameEn'],['p-ground','groundColor'],['p-colors','printColors'],['p-base','baseArticle'],['p-owner','owner'],['p-next','nextStep'],['p-nextdate','nextDate'],['p-due','dueDate'],['p-priority','priority'],['p-house','printHouse'],['p-season','season'],['p-round','strikeRound'],['p-link','artworkLink'],['p-note','note']];
 function openPrintModal(id=null,copyFrom=null){
-  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');return;}
+  if(!canWritePrint()){showToast('✗ 唯讀帳號無法新增或編輯');return;}
   buildPrintSelectOptions();
   fillPrintModalSelects();
   editingPrintId=id;
@@ -2279,7 +2279,7 @@ function openPrintModal(id=null,copyFrom=null){
 function closePrintModal(){document.getElementById('print-modal-bg').style.display='none';editingPrintId=null;}
 function duplicatePrint(id){const p=printList.find(x=>x.id===id);if(p)openPrintModal(null,p);}
 function savePrint(){
-  if(isReadOnly(currentUserEmail)){showToast('✗ 唯讀帳號無法新增或編輯');closePrintModal();return;}
+  if(!canWritePrint()){showToast('✗ 唯讀帳號無法新增或編輯');closePrintModal();return;}
   const brand=document.getElementById('p-brand').value.trim();
   const printName=document.getElementById('p-name').value.trim();
   const owner=document.getElementById('p-owner').value.trim();
@@ -2631,10 +2631,13 @@ setupBackdropClose('yarn-modal-bg',closeYarnModal);
 /* ────────────────────────────────────────────────────────────
    登入驗證：只有登入且信箱在白名單內的人，才能讀取/編輯 Firestore 資料
    ──────────────────────────────────────────────────────────── */
-const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com','vivianyuyuang@gmail.com'];
+const ALLOWED_EMAILS=['ches.0301@gmail.com','chesterh.yy@gmail.com','peter93133@gmail.com','joanna0112032@gmail.com','clairelove1818@gmail.com','brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com','vivianyuyuang@gmail.com','celinetsaiyuyuang@gmail.com'];
 const ADMIN_EMAILS=['ches.0301@gmail.com'];
-const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com'];
-const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa','vivianyuyuang@gmail.com':'Vivian'};
+const READONLY_EMAILS=['brendaramirezly@gmail.com','anre0630@gmail.com','ailsalin0615@gmail.com','celinetsaiyuyuang@gmail.com'];
+// 只在印花開發有編輯權限的帳號（其他分頁唯讀）
+const PRINT_ONLY_EDITORS=['celinetsaiyuyuang@gmail.com'];
+function canWritePrint(){return !!currentUserEmail&&(!isReadOnly(currentUserEmail)||PRINT_ONLY_EDITORS.includes(currentUserEmail));}
+const USER_NAMES={'ches.0301@gmail.com':'Chester GM','chesterh.yy@gmail.com':'Chester','peter93133@gmail.com':'Peter','joanna0112032@gmail.com':'Joanna','clairelove1818@gmail.com':'Claire','brendaramirezly@gmail.com':'Brenda','anre0630@gmail.com':'Andy','ailsalin0615@gmail.com':'Elsa','vivianyuyuang@gmail.com':'Vivian','celinetsaiyuyuang@gmail.com':'Celine'};
 function isReadOnly(email){return READONLY_EMAILS.includes(email);}
 let currentUserEmail=null;
 function canEdit(c){return !!currentUserEmail&&!isReadOnly(currentUserEmail)&&(ADMIN_EMAILS.includes(currentUserEmail)||c.createdBy===currentUserEmail);}
