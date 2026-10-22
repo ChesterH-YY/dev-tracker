@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="2026-10-21.3">
+<meta name="app-version" content="2026-10-22.1">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Development Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
@@ -34,17 +34,22 @@
 body{font-family:var(--font-sans);background:var(--color-background-secondary);color:var(--color-text-primary);min-height:100vh;}
 .page{max-width:780px;margin:0 auto;padding:1.5rem 1rem;}
 .crm-wrap{padding:1rem 0;}
-.top-bar{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;padding-right:144px;position:relative;}
-.top-bar h2{font-size:18px;font-weight:500;color:var(--color-text-primary);flex:1;}
-.btn-add{display:flex;align-items:center;gap:5px;padding:7px 12px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
-.btn-add:hover{background:var(--color-background-secondary);}
-.btn-io{display:flex;align-items:center;gap:4px;padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);font-size:13px;cursor:pointer;}
+.top-bar{display:flex;flex-direction:column;gap:12px;margin-bottom:1.1rem;}
+.tb-row{display:flex;align-items:center;gap:8px;}
+.tb-head{justify-content:space-between;}
+.top-bar h2{font-size:19px;font-weight:600;color:var(--color-text-primary);margin:0;white-space:nowrap;}
+.tb-spacer{flex:1;}
+.search-wrap{position:relative;flex:0 1 340px;min-width:180px;}
+.search-wrap .ti-search{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--color-text-tertiary);pointer-events:none;}
+.btn-add{display:flex;align-items:center;gap:5px;padding:7px 14px;border:none;border-radius:var(--border-radius-md);background:#3C3489;color:#fff;font-size:13.5px;font-weight:500;cursor:pointer;white-space:nowrap;height:34px;}
+.btn-add:hover{background:#2E2870;}
+.btn-io{display:flex;align-items:center;gap:4px;white-space:nowrap;height:34px;padding:6px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-secondary);font-size:13px;cursor:pointer;}
 .btn-io:hover{background:var(--color-background-secondary);}
 .btn-io-export{border-color:var(--color-border-tertiary);}
 .btn-io-import{border-color:var(--color-border-tertiary);}
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;font-size:13px;padding:10px 20px;border-radius:99px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;}
 .toast.show{opacity:1;}
-.search-bar{padding:8px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:14px;background:var(--color-background-primary);color:var(--color-text-primary);width:168px;}
+.search-bar{padding:7px 12px 7px 32px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13.5px;background:var(--color-background-primary);color:var(--color-text-primary);width:100%;height:34px;box-sizing:border-box;}
 .filter-section{margin-bottom:1.25rem;margin-top:14px;}
 .filter-group{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap;}
 .filter-group-label{font-size:12px;color:var(--color-text-secondary);min-width:56px;}
@@ -288,7 +293,7 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 .auth-screen p{font-size:14px;color:var(--color-text-secondary);max-width:320px;line-height:1.6;}
 .btn-google{display:flex;align-items:center;gap:10px;padding:10px 20px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);font-size:14px;cursor:pointer;}
 .btn-google:hover{background:var(--color-background-secondary);}
-.user-bar{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--color-text-secondary);position:absolute;top:50%;right:0;transform:translateY(-50%);}
+.user-bar{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-text-secondary);white-space:nowrap;}
 .btn-signout{padding:5px 9px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:transparent;color:var(--color-text-secondary);font-size:11.5px;cursor:pointer;white-space:nowrap;}
 .btn-signout:hover{background:var(--color-background-secondary);}
 
@@ -296,12 +301,13 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 @media (max-width: 640px) {
   input, select, textarea { font-size: 16px !important; }
   .page{padding:1rem 0.75rem;}
-  .top-bar{gap:8px;padding-right:0;}
-  .top-bar h2{font-size:16px;width:100%;}
-  .search-bar{flex:1;min-width:0;width:auto;}
-  .btn-io span,.btn-io{font-size:12px;padding:7px 10px;}
-  .btn-add{padding:7px 12px;font-size:13px;}
-  .user-bar{position:static;width:100%;justify-content:flex-end;margin-top:4px;}
+  .top-bar{gap:10px;}
+  .top-bar h2{font-size:16px;}
+  .tb-actions{flex-wrap:wrap;}
+  .search-wrap{flex:1 1 100%;}
+  .tb-spacer{display:none;}
+  .btn-io{font-size:12px;padding:6px 9px;}
+  .btn-add{padding:6px 12px;font-size:13px;margin-left:auto;}
   .filter-group{gap:6px;}
   .filter-group-label{width:100%;min-width:0;margin-bottom:2px;}
   .filter-chip{font-size:11px;padding:3px 8px;}
@@ -358,17 +364,22 @@ body{font-family:var(--font-sans);background:var(--color-background-secondary);c
 <div class="page" id="app-page" style="display:none">
 <div class="crm-wrap">
 <div class="top-bar">
-  <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
-  <input class="search-bar" type="text" placeholder="搜尋 Article / Family / 紗線…" title="可搜尋 品牌、Article、Family、紗線、針數、Request、Developer、Knitter、染廠、Season；多個關鍵字用空格分隔，需全部符合" id="search" oninput="render()">
-  <button class="btn-io btn-io-export" id="btn-export-xlsx" onclick="exportExcel()" title="依目前的篩選、搜尋與排序匯出 Excel"><i class="ti ti-file-spreadsheet"></i> 匯出 Excel</button>
-  <button class="btn-io btn-io-export" id="btn-export" onclick="exportData()" title="完整資料備份（JSON），可用「匯入」還原或批次更新"><i class="ti ti-download"></i> 備份</button>
-  <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()"><i class="ti ti-upload"></i> 匯入</button>
-  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-  <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增</button>
-  <button class="btn-add" id="btn-add-feedback" style="display:none" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
-  <button class="btn-add" id="btn-add-print" style="display:none" onclick="openPrintModal()"><i class="ti ti-plus"></i> 新增印花</button>
-  <button class="btn-add" id="btn-add-yarn" style="display:none" onclick="openYarnModal()"><i class="ti ti-plus"></i> 新增紗線</button>
-  <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
+  <div class="tb-row tb-head">
+    <h2><i class="ti ti-clipboard-list" style="font-size:20px;vertical-align:-3px;margin-right:6px"></i>Development Tracker</h2>
+    <div class="user-bar"><i class="ti ti-user-circle" style="font-size:16px"></i><span id="user-email-display"></span><button class="btn-signout" onclick="signOutUser()">登出</button></div>
+  </div>
+  <div class="tb-row tb-actions">
+    <div class="search-wrap" id="search-wrap"><i class="ti ti-search"></i><input class="search-bar" type="text" placeholder="搜尋 Article / Family / 紗線…" title="可搜尋 品牌、Article、Family、紗線、針數、Request、Developer、Knitter、染廠、Season；多個關鍵字用空格分隔，需全部符合" id="search" oninput="render()"></div>
+    <span class="tb-spacer"></span>
+    <button class="btn-io btn-io-export" id="btn-export-xlsx" onclick="exportExcel()" title="依目前的篩選、搜尋與排序匯出 Excel"><i class="ti ti-file-spreadsheet"></i> 匯出 Excel</button>
+    <button class="btn-io btn-io-export" id="btn-export" onclick="exportData()" title="完整資料備份（JSON），可用「匯入」還原或批次更新"><i class="ti ti-download"></i> 備份</button>
+    <button class="btn-io btn-io-import" id="btn-import" onclick="document.getElementById('import-file').click()" title="匯入 JSON 備份檔（新增或批次更新）"><i class="ti ti-upload"></i> 匯入</button>
+    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    <button class="btn-add" id="btn-add-dev" onclick="openModal()"><i class="ti ti-plus"></i> 新增項目</button>
+    <button class="btn-add" id="btn-add-feedback" style="display:none" onclick="openFeedbackModal()"><i class="ti ti-plus"></i> 新增回饋</button>
+    <button class="btn-add" id="btn-add-print" style="display:none" onclick="openPrintModal()"><i class="ti ti-plus"></i> 新增印花</button>
+    <button class="btn-add" id="btn-add-yarn" style="display:none" onclick="openYarnModal()"><i class="ti ti-plus"></i> 新增紗線</button>
+  </div>
 </div>
 <div id="toast" class="toast"></div>
 <div id="status-suggest-bar" class="status-suggest-bar" style="display:none">
@@ -1649,7 +1660,7 @@ function updateToolbarVisibility(){
   const addFbBtn=document.getElementById('btn-add-feedback');if(addFbBtn)addFbBtn.style.display=(currentView==='feedback'&&!ro)?'':'none';
   const addPrintBtn=document.getElementById('btn-add-print');if(addPrintBtn)addPrintBtn.style.display=(currentView==='print'&&canWritePrint())?'':'none';
   const addYarnBtn=document.getElementById('btn-add-yarn');if(addYarnBtn)addYarnBtn.style.display=(currentView==='yarn'&&!ro)?'':'none';
-  const topSearch=document.getElementById('search');if(topSearch)topSearch.style.visibility=currentView==='dev'?'':'hidden';
+  const topSearch=document.getElementById('search-wrap');if(topSearch)topSearch.style.display=currentView==='dev'?'':'none';
   const dashTab=document.getElementById('tab-dashboard');if(dashTab)dashTab.style.display=canViewDashboard(currentUserEmail)?'':'none';
   updateCompareFloatButton();
 }
